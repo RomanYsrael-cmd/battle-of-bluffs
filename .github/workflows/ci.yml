@@ -8,8 +8,8 @@ on:
   pull_request:
 
 concurrency:
-  # Push and pull_request runs for the same branch must not build the shared NVD
-  # database concurrently from the same GitHub-hosted runner egress address.
+  # Push and pull_request runs for the same branch must not bootstrap separate
+  # vulnerability databases concurrently from GitHub-hosted runners.
   group: ci-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: false
 
@@ -55,8 +55,7 @@ jobs:
           for attempt in 1 2; do
             if ./mvnw org.owasp:dependency-check-maven:12.2.2:update-only \
               -DdataDirectory="$ODC_DATA_DIRECTORY" \
-              -DnvdApiDelay=12000 \
-              -DnvdApiResultsPerPage=2000; then
+              -DnvdDatafeedUrl='https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz'; then
               exit 0
             fi
 
