@@ -1,6 +1,7 @@
 package com.romanysrael.battleofbluffs.game.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -22,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
@@ -59,6 +61,13 @@ class MatchControllerTest {
     @MockitoBean
     private AccountUserDetailsService userDetailsService;
 
+    @BeforeEach
+    void accountsRemainActive() {
+        when(userDetailsService.loadUserByUsername(HOST.username())).thenReturn(HOST);
+        when(userDetailsService.loadUserByUsername(GUEST.username())).thenReturn(GUEST);
+        when(userDetailsService.loadUserByUsername(OUTSIDER.username())).thenReturn(OUTSIDER);
+    }
+
     @Test
     void authenticatedIdentityExclusivelyControlsBothSeatsAndPrivateViews() throws Exception {
         JsonNode created = json.readTree(mvc.perform(post("/api/matches")
@@ -91,6 +100,16 @@ class MatchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.requestingSide").value("PLAYER_ONE"));
         mvc.perform(get("/api/matches/{matchId}", matchId).with(user(OUTSIDER)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("PLAYER_NOT_IN_MATCH"));
+        mvc.perform(put("/api/matches/{matchId}/formation", matchId)
+                        .with(user(OUTSIDER))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "commandId", UUID.randomUUID(),
+                                "expectedVersion", 2,
+                                "pieces", formationPieces(0)))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("PLAYER_NOT_IN_MATCH"));
     }
@@ -178,6 +197,19 @@ class MatchControllerTest {
     }
 
     private long formation(String matchId, AccountPrincipal player, long version, int startRow) throws Exception {
+        List<Map<String, Object>> pieces = formationPieces(startRow);
+        JsonNode response = body(mvc.perform(put("/api/matches/{id}/formation", matchId)
+                        .with(user(player)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "commandId", UUID.randomUUID(),
+                                "expectedVersion", version,
+                                "pieces", pieces))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        return response.get("version").asLong();
+    }
+
+    private static List<Map<String, Object>> formationPieces(int startRow) {
         List<Rank> ranks = new ArrayList<>(List.of(
                 Rank.FIVE_STAR_GENERAL, Rank.FOUR_STAR_GENERAL, Rank.THREE_STAR_GENERAL,
                 Rank.TWO_STAR_GENERAL, Rank.ONE_STAR_GENERAL, Rank.COLONEL,
@@ -194,15 +226,7 @@ class MatchControllerTest {
                     "row", startRow + index / 9,
                     "column", index % 9));
         }
-        JsonNode response = body(mvc.perform(put("/api/matches/{id}/formation", matchId)
-                        .with(user(player)).with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json.writeValueAsString(Map.of(
-                                "commandId", UUID.randomUUID(),
-                                "expectedVersion", version,
-                                "pieces", pieces))))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
-        return response.get("version").asLong();
+        return pieces;
     }
 
     private long command(

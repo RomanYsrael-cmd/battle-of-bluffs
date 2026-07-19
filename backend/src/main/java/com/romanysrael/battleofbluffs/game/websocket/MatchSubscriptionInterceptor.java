@@ -3,6 +3,7 @@ package com.romanysrael.battleofbluffs.game.websocket;
 import com.romanysrael.battleofbluffs.game.application.MatchApplicationException;
 import com.romanysrael.battleofbluffs.game.application.MatchApplicationService;
 import com.romanysrael.battleofbluffs.user.AccountPrincipal;
+import com.romanysrael.battleofbluffs.user.AccountUserDetailsService;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,12 +26,15 @@ public final class MatchSubscriptionInterceptor implements ChannelInterceptor {
     private static final String MATCHMAKING_SUBSCRIPTION = "/user/queue/matchmaking";
 
     private final ObjectProvider<MatchApplicationService> matches;
+    private final ObjectProvider<AccountUserDetailsService> accounts;
     private final MatchPresenceCoordinator presence;
 
     public MatchSubscriptionInterceptor(
             ObjectProvider<MatchApplicationService> matches,
+            ObjectProvider<AccountUserDetailsService> accounts,
             MatchPresenceCoordinator presence) {
         this.matches = matches;
+        this.accounts = accounts;
         this.presence = presence;
     }
 
@@ -64,6 +68,10 @@ public final class MatchSubscriptionInterceptor implements ChannelInterceptor {
         }
 
         AccountPrincipal principal = (AccountPrincipal) authentication.getPrincipal();
+        if (!principal.isEnabled()
+                || !accounts.getObject().loadUserByUsername(principal.username()).isEnabled()) {
+            throw new AccessDeniedException("Account is unavailable for WebSocket messaging");
+        }
         try {
             matches.getObject().getView(matchId, principal.userId().toString());
         } catch (MatchApplicationException exception) {

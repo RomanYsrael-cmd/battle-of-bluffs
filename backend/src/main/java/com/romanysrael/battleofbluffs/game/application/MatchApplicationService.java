@@ -36,6 +36,7 @@ public final class MatchApplicationService {
     private final VictoryEvaluator victoryEvaluator = new VictoryEvaluator();
     private final SecureRandom random = new SecureRandom();
     private Clock clock = Clock.systemUTC();
+    private MatchTimingSettings timing = MatchTimingSettings.defaults();
 
     public MatchApplicationService(MatchRepository repository, PlayerMatchViewMapper mapper) {
         this.repository = repository;
@@ -58,6 +59,12 @@ public final class MatchApplicationService {
     @Autowired(required = false)
     void setJoinPolicy(MatchJoinPolicy joinPolicy) {
         this.joinPolicy = joinPolicy;
+    }
+
+    @Autowired(required = false)
+    void setTiming(MatchTimingSettings timing) {
+        this.timing = timing;
+        this.temporal.setTiming(timing);
     }
 
     public MatchCommandResult createMatch(CreateMatchCommand command) {
@@ -268,7 +275,7 @@ public final class MatchApplicationService {
                     && match.timerMode == TimerMode.STANDARD_15_PLUS_5) {
                 match.remainingMillis.put(
                         side,
-                        remainingBeforeIncrement + MatchTimingRules.MOVE_INCREMENT.toMillis());
+                        remainingBeforeIncrement + timing.moveIncrement().toMillis());
                 temporal.beginTurn(match, receivedAt);
             }
             match.version++;

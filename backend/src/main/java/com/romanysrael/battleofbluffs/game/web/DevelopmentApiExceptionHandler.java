@@ -17,9 +17,9 @@ public final class DevelopmentApiExceptionHandler {
         HttpStatus status = switch (exception.code()) {
             case "ACCOUNT_CONFLICT" -> HttpStatus.CONFLICT;
             case "RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
-            case "AUTHENTICATION_REQUIRED" -> HttpStatus.UNAUTHORIZED;
+            case "AUTHENTICATION_REQUIRED", "INVALID_CREDENTIALS" -> HttpStatus.UNAUTHORIZED;
             case "ACCOUNT_NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "INVALID_CREDENTIALS", "INVALID_TOKEN", "INVALID_ACCOUNT_INPUT" -> HttpStatus.BAD_REQUEST;
+            case "INVALID_TOKEN", "INVALID_ACCOUNT_INPUT" -> HttpStatus.BAD_REQUEST;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(new ApiError(

@@ -9,8 +9,8 @@ Profiles and competition data are derived from authoritative persisted matches. 
 - `GET /api/profiles/{username}` returns a public profile without email, account secrets, reports, sessions or block data.
 - `GET /api/profile/me/matches?page=0&size=20` returns the signed-in player's paginated history.
 - `GET /api/matches/{matchId}/history` returns a participant-safe match view to a participant and a minimal public summary to anyone else. Active views continue to enforce hidden-rank secrecy. Chat history remains available only through its participant-authorized endpoint.
-- `GET /api/leaderboards?scope=seasonal&page=0&size=20` returns the active-season rating board.
-- `GET /api/leaderboards?scope=all-time&page=0&size=20` returns accumulated competitive statistics.
+- `GET /api/leaderboards/seasonal?page=0&size=25` returns the active-season rating board.
+- `GET /api/leaderboards/all-time?page=0&size=25` returns accumulated competitive statistics.
 
 History responses use the same safe view mapper as live matches. Participants receive the persisted event timeline and complete formation disclosure only after the match is terminal. Nonparticipants never receive room codes, formations, pieces, ranks or chat.
 

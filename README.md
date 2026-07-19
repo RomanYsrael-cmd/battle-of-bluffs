@@ -1,76 +1,49 @@
 # Games of the Generals
 
-Monorepo for **Games of the Generals**, a server-authoritative hidden-information strategy game. The authoritative specification is [docs/game-rules.md](docs/game-rules.md).
+Games of the Generals is a local-development-ready, server-authoritative implementation of the Filipino hidden-information strategy game. It supports persistent browser accounts, private casual rooms, ranked pairing, live play, clocks, text chat, safety controls, profiles, history, ratings and leaderboards. The authoritative rules are in [docs/game-rules.md](docs/game-rules.md).
 
-## Repository structure
+Video and voice are intentionally outside this project.
 
-- `backend/` — Java 17 and Spring Boot application plus the pure Java rules domain
-- `frontend/` — React, TypeScript, Vite, Tailwind, and TanStack Query match client
-- `infra/compose.yaml` — local PostgreSQL 18 service
-- `docs/` — game rules and architecture documentation
-- `contracts/` — reserved multiplayer protocol contracts
+## Architecture
+
+- `backend/` — Java 17, Spring Boot 4.1, Spring Security sessions/CSRF, STOMP, JPA, Flyway and PostgreSQL
+- `frontend/` — React 19, TypeScript, Vite, TanStack Query and STOMP
+- `infra/compose.yaml` — persistent PostgreSQL 18 and Mailpit services
+- `docs/` — protocol, security, persistence and local-development references
+
+The backend is one modular monolith. REST accepts authoritative game commands, PostgreSQL stores accounts and match aggregates, and participant-specific WebSocket messages deliver rank-safe updates. Redis, external OAuth and media infrastructure are not required.
 
 ## Prerequisites
 
 - Java 17
-- Docker with Docker Compose
-- Node.js 20 or newer and npm
+- Node.js 22 and npm
+- Docker Engine with Docker Compose
 
-The Maven Wrapper is included, so a system Maven installation is not required.
+The Maven Wrapper is included.
 
-## Start PostgreSQL
+## Start locally
 
-```bash
-docker compose -f infra/compose.yaml up -d
-docker compose -f infra/compose.yaml ps
-```
-
-The local database uses the development-only credentials in `infra/compose.yaml`. Backend defaults match them. Override `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` when needed; `.env.example` lists the expected variables.
-
-## Backend
-
-Run the pure domain and backend tests:
+Copy the safe development defaults if you want to customize them:
 
 ```bash
-cd backend
-./mvnw test
+cp .env.example .env
 ```
 
-Start the application while PostgreSQL is healthy:
+Start PostgreSQL 18 and Mailpit without deleting the persistent database volume:
+
+```bash
+docker compose --env-file .env -f infra/compose.yaml up -d
+docker compose --env-file .env -f infra/compose.yaml ps
+```
+
+Start the backend:
 
 ```bash
 cd backend
 ./mvnw spring-boot:run
 ```
 
-Health and application information are available at:
-
-- `http://localhost:8080/actuator/health`
-- `http://localhost:8080/actuator/info`
-
-### In-memory development match API
-
-The backend currently supports a complete two-player private match in memory: room creation/joining, server-validated formations, locking, random first-player selection, authoritative moves and battles, resignation, optimistic versioning, idempotent commands, public event history, and player-specific secret-safe views. Restarting the backend removes every match.
-
-Create a match:
-
-```bash
-curl -sS -X POST http://localhost:8080/api/dev/matches \
-  -H 'Content-Type: application/json' \
-  -d '{"playerId":"alice-dev"}'
-```
-
-Join it using the room code:
-
-```bash
-curl -sS -X POST http://localhost:8080/api/dev/matches/join \
-  -H 'Content-Type: application/json' \
-  -d '{"commandId":"NEW_UUID","roomCode":"ROOM_CODE","playerId":"bob-dev","expectedVersion":1}'
-```
-
-The `playerId` values in request bodies and query parameters are temporary development credentials. They are **not authentication** and must not be exposed as a production security design. See [docs/development-api.md](docs/development-api.md) for the remaining endpoints and request shapes.
-
-## Frontend
+Start the frontend in another terminal:
 
 ```bash
 cd frontend
@@ -78,36 +51,55 @@ npm ci
 npm run dev
 ```
 
-Vite serves the frontend at `http://localhost:5173` and proxies `/api` requests to the backend at `http://localhost:8080`. Set `VITE_API_BASE_URL` to override the backend origin when needed.
+Open `http://localhost:5173`. Backend health is at `http://localhost:8080/actuator/health`; Mailpit is at `http://localhost:8025`.
 
-Open two browser tabs or windows. Create a private match in the first, then enter its room code in the second. Session identity is stored in `sessionStorage`, so separate tabs can act as separate players. These temporary IDs are development conveniences, not authentication; use **Leave local session** before reusing a tab for another player.
+Register an account, open its verification message in Mailpit, and follow the `http://localhost:5173/verify-email?...` link. Verification unlocks ranked matchmaking. Password-reset messages use the same local inbox.
 
-For repeatable validation:
+## Playing
+
+For a casual match, sign in from two separate browser profiles or private contexts. One player creates a room and shares its six-character code; the other joins. Both place exactly 21 pieces, submit, lock, make legal canonical-coordinate moves, and may chat, block, report or resign.
+
+For ranked play, two verified players select **Enter ranked queue**. The range begins at ±200 rating and expands by 50 every 30 seconds to ±600. Pairing creates a persistent 15+5 match without a room code.
+
+The server owns versions, idempotency, formations, moves, battles, clocks, presence, terminal results and rating changes. Player 2 sees a rotated board, but requests always use canonical coordinates. Active opponent ranks and authoritative IDs are never sent; complete formations are disclosed to participants only after termination.
+
+## Live updates and reconnects
+
+The browser uses the authenticated session at `/ws`, subscribes only to its authorized user destinations, and refetches a safe REST view after connect or reconnect. It ignores duplicate live sequences and refetches on a gap. A 15-second REST fallback runs only while live synchronization is unavailable.
+
+Formation, 15+5 play, disconnect and cumulative ranked clocks are authoritative persisted deadlines. The browser countdown is a display estimate corrected by server messages.
+
+## Tests
 
 ```bash
-npm test
+cd backend
+./mvnw test
+
+cd ../frontend
+npm test -- --run
 npm run build
+npm run typecheck:e2e
 ```
 
-The frontend currently synchronizes through REST polling about every 1.5 seconds while a match is waiting, in formation setup, or active. Terminal matches stop polling. This is temporary synchronization rather than real-time push; WebSocket delivery is deferred to the next milestone.
+The PostgreSQL integration test uses Testcontainers and runs when Docker is accessible. To run the four isolated-context browser flows, first start the normal Docker, backend and frontend services, then:
 
-## Current scope
+```bash
+cd frontend
+npx playwright install chromium
+npm run test:e2e
+```
 
-Implemented in this foundation:
+Playwright retrieves verification messages from Mailpit and covers accounts, casual play, ranked rating application, outsider denial, hidden-rank secrecy and inert hostile chat text.
 
-- Spring Boot application configuration, development security policy, Actuator, JPA wiring, and Flyway wiring
-- Pure Java board, movement, battle, and resolved victory-rule domain foundation
-- Exhaustive ordered-rank battle tests and focused movement/invariant tests
-- PostgreSQL development Compose service
-- Responsive local 8×9 formation placement, swapping, removal, reset, validation, and lock interaction
-- In-memory, server-authoritative private-match application service and temporary development REST API
-- REST-connected private-room frontend with per-tab identity, formation setup, active play, polling, resignation, event history, and terminal disclosure
+## Development-only API
 
-Explicitly deferred:
+The client-supplied identity compatibility API under `/api/dev/**` exists only with `SPRING_PROFILES_ACTIVE=dev`. Normal browser work must use authenticated `/api/**` routes. See [docs/development-api.md](docs/development-api.md).
 
-- authentication and secure player identities
-- matchmaking and lobby behavior
-- WebSocket live synchronization and finalized event contracts (next milestone)
-- complete persistence entities and database schema
-- video/voice calling
-- rankings, replay delivery, and production deployment
+## Current limitations
+
+- Ranked queue entries are in memory and intentionally single-instance; created matches are persistent.
+- No administrator moderation UI is included.
+- No production deployment, OAuth, spectators, matchmaking clusters, Redis, video or voice is included.
+- Email delivery is SMTP-only; Mailpit is the supported local target.
+
+More detail: [architecture](docs/architecture.md), [local development](docs/local-development.md), [authentication](docs/authentication.md), [WebSocket protocol](docs/websocket-protocol.md), [database schema](docs/database-schema.md), [ratings](docs/rating-and-leaderboard.md) and [security](docs/security.md).

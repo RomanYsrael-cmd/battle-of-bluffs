@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,8 +28,6 @@ public class MatchChatService {
     private static final Logger LOGGER = LoggerFactory.getLogger(MatchChatService.class);
     private static final int LOCK_STRIPES = 64;
     static final int MAXIMUM_MESSAGE_LENGTH = 500;
-    static final int RATE_LIMIT = 5;
-    static final Duration RATE_WINDOW = Duration.ofSeconds(10);
 
     private final MatchApplicationService matches;
     private final MatchChatMessageRepository messages;
@@ -36,6 +35,8 @@ public class MatchChatService {
     private final UserAccountRepository accounts;
     private final SimpMessagingTemplate messaging;
     private final Clock clock;
+    private final int rateLimit;
+    private final Duration rateWindow;
     private final Object[] matchLocks = IntStream.range(0, LOCK_STRIPES)
             .mapToObj(ignored -> new Object())
             .toArray();
@@ -47,13 +48,20 @@ public class MatchChatService {
             BlockRelationshipService blocks,
             UserAccountRepository accounts,
             SimpMessagingTemplate messaging,
-            Clock clock) {
+            Clock clock,
+            @Value("${app.rate-limit.chat.limit:5}") int rateLimit,
+            @Value("${app.rate-limit.chat.window:10s}") Duration rateWindow) {
         this.matches = matches;
         this.messages = messages;
         this.blocks = blocks;
         this.accounts = accounts;
         this.messaging = messaging;
         this.clock = clock;
+        if (rateLimit < 1 || rateWindow.isNegative() || rateWindow.isZero()) {
+            throw new IllegalArgumentException("Chat rate limits must use positive values");
+        }
+        this.rateLimit = rateLimit;
+        this.rateWindow = rateWindow;
     }
 
     public ChatMessageView send(UUID matchId, UUID senderId, String submittedBody) {
@@ -132,11 +140,11 @@ public class MatchChatService {
     private void requireRatePermit(UUID matchId, UUID senderId, Instant now) {
         Deque<Instant> attempts = recentMessages.computeIfAbsent(
                 new RateKey(matchId, senderId), ignored -> new ArrayDeque<>());
-        Instant windowStart = now.minus(RATE_WINDOW);
+        Instant windowStart = now.minus(rateWindow);
         while (!attempts.isEmpty() && !attempts.peekFirst().isAfter(windowStart)) {
             attempts.removeFirst();
         }
-        if (attempts.size() >= RATE_LIMIT) {
+        if (attempts.size() >= rateLimit) {
             throw new ChatException(
                     "CHAT_RATE_LIMITED", "You can send up to five messages every ten seconds.");
         }

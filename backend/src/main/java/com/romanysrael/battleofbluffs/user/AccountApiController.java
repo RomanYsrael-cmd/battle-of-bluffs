@@ -7,7 +7,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import java.time.Duration;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -51,7 +50,7 @@ public class AccountApiController {
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     AccountView register(@Valid @RequestBody RegistrationRequest request, HttpServletRequest servletRequest) {
-        rateLimiter.requirePermit("register", clientKey(servletRequest), 5, Duration.ofHours(1));
+        rateLimiter.requireRegistration(clientKey(servletRequest));
         return accounts.register(new RegisterAccount(
                 request.username(), request.email(), request.password(), request.displayName()));
     }
@@ -61,7 +60,7 @@ public class AccountApiController {
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest servletRequest,
             HttpServletResponse servletResponse) {
-        rateLimiter.requirePermit("login", clientKey(servletRequest), 10, Duration.ofMinutes(15));
+        rateLimiter.requireLogin(clientKey(servletRequest));
         Authentication authentication;
         try {
             authentication = authenticationManager.authenticate(
@@ -99,8 +98,7 @@ public class AccountApiController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void resendVerification(Authentication authentication, HttpServletRequest servletRequest) {
         AccountPrincipal principal = principal(authentication);
-        rateLimiter.requirePermit(
-                "resend-verification", principal.userId() + ":" + clientKey(servletRequest), 3, Duration.ofHours(1));
+        rateLimiter.requireResendVerification(principal.userId() + ":" + clientKey(servletRequest));
         accounts.resendVerification(principal.userId());
     }
 
@@ -109,14 +107,17 @@ public class AccountApiController {
     GenericMessage forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest servletRequest) {
-        rateLimiter.requirePermit("forgot-password", clientKey(servletRequest), 5, Duration.ofHours(1));
+        rateLimiter.requireForgotPassword(clientKey(servletRequest));
         accounts.requestPasswordReset(request.email());
         return new GenericMessage("If that account exists, a password reset message has been sent.");
     }
 
     @PostMapping("/reset-password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+    void resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request,
+            HttpServletRequest servletRequest) {
+        rateLimiter.requireResetPassword(clientKey(servletRequest));
         accounts.resetPassword(request.token(), request.password());
     }
 

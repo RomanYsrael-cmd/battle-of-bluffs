@@ -11,10 +11,16 @@ import org.springframework.stereotype.Component;
 @Component
 public final class PlayerMatchViewMapper {
     private Clock clock = Clock.systemUTC();
+    private MatchTimingSettings timing = MatchTimingSettings.defaults();
 
     @Autowired(required = false)
     void setClock(Clock clock) {
         this.clock = clock;
+    }
+
+    @Autowired(required = false)
+    void setTiming(MatchTimingSettings timing) {
+        this.timing = timing;
     }
 
     public PlayerMatchView map(PrivateMatch match, String playerId) {
@@ -70,7 +76,7 @@ public final class PlayerMatchViewMapper {
                 match.formationDeadline,
                 match.turnDeadline,
                 match.timerMode == TimerMode.STANDARD_15_PLUS_5
-                        ? MatchTimingRules.MOVE_INCREMENT.toMillis()
+                        ? timing.moveIncrement().toMillis()
                         : 0,
                 now);
     }
@@ -96,9 +102,9 @@ public final class PlayerMatchViewMapper {
                 match.disconnectedSince.get(PlayerSide.PLAYER_TWO),
                 cumulativeDisconnected(match, PlayerSide.PLAYER_ONE, now),
                 cumulativeDisconnected(match, PlayerSide.PLAYER_TWO, now),
-                MatchTimingRules.DISCONNECT_GRACE.toMillis(),
+                timing.disconnectGrace().toMillis(),
                 match.mode == MatchMode.RANKED
-                        ? MatchTimingRules.RANKED_CUMULATIVE_DISCONNECT_LIMIT.toMillis()
+                        ? timing.rankedCumulativeDisconnectLimit().toMillis()
                         : 0,
                 now);
     }

@@ -1,5 +1,6 @@
 package com.romanysrael.battleofbluffs.user;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -96,6 +97,43 @@ class AccountApiControllerTest {
     void anonymousCurrentAccountRequestIsRejected() throws Exception {
         mvc.perform(get("/api/auth/me"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void invalidLoginUsesOneGenericUnauthorizedResponse() throws Exception {
+        mvc.perform(post("/api/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"login\":\"marshal\",\"password\":\"WrongPassword!2026\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"))
+                .andExpect(jsonPath("$.message").value("Invalid username/email or password."));
+    }
+
+    @Test
+    void logoutInvalidatesTheAuthenticatedServerSession() throws Exception {
+        MockHttpSession session = (MockHttpSession) mvc.perform(post("/api/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"login\":\"marshal\",\"password\":\"Strategist!2026\"}"))
+                .andReturn().getRequest().getSession(false);
+
+        mvc.perform(post("/api/auth/logout").session(session).with(csrf()))
+                .andExpect(status().isNoContent());
+
+        assertThat(session.isInvalid()).isTrue();
+    }
+
+    @Test
+    void suspendedAuthenticatedSessionIsInvalidatedBeforeApiAccess() throws Exception {
+        AccountPrincipal suspended = new AccountPrincipal(
+                USER_ID, "marshal", "Marshal", AccountStatus.SUSPENDED, "encoded");
+
+        mvc.perform(get("/api/auth/me")
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
+                                .user(suspended)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_DISABLED"));
     }
 
     private static AccountView unverifiedAccount() {

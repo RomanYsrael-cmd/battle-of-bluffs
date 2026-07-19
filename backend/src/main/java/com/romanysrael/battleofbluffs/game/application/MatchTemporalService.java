@@ -24,6 +24,7 @@ final class MatchTemporalService {
     private final PlayerMatchViewMapper mapper;
     private Clock clock = Clock.systemUTC();
     private MatchUpdatePublisher updatePublisher = update -> { };
+    private MatchTimingSettings timing = MatchTimingSettings.defaults();
 
     MatchTemporalService(MatchRepository repository, PlayerMatchViewMapper mapper) {
         this.repository = repository;
@@ -38,8 +39,12 @@ final class MatchTemporalService {
         this.updatePublisher = updatePublisher;
     }
 
+    void setTiming(MatchTimingSettings timing) {
+        this.timing = timing;
+    }
+
     void openFormation(PrivateMatch match, Instant now) {
-        match.formationDeadline = now.plus(MatchTimingRules.FORMATION_LIMIT);
+        match.formationDeadline = now.plus(timing.formationLimit());
         for (PlayerSide side : PlayerSide.values()) {
             if (!match.connected.contains(side)) {
                 match.disconnectedSince.put(side, now);
@@ -54,7 +59,7 @@ final class MatchTemporalService {
             return;
         }
         for (PlayerSide side : PlayerSide.values()) {
-            match.remainingMillis.put(side, MatchTimingRules.INITIAL_PLAY_TIME.toMillis());
+            match.remainingMillis.put(side, timing.initialPlayTime().toMillis());
         }
         beginTurn(match, now);
     }
@@ -95,7 +100,7 @@ final class MatchTemporalService {
             return 0;
         }
         long stored = match.remainingMillis.getOrDefault(
-                side, MatchTimingRules.INITIAL_PLAY_TIME.toMillis());
+                side, timing.initialPlayTime().toMillis());
         long elapsed = match.turnStartedAt == null
                 ? 0
                 : Math.max(0, Duration.between(match.turnStartedAt, acceptedAt).toMillis());
@@ -116,7 +121,7 @@ final class MatchTemporalService {
     void beginTurn(PrivateMatch match, Instant now) {
         PlayerSide activeSide = match.state.currentPlayer().orElseThrow();
         long remaining = match.remainingMillis.getOrDefault(
-                activeSide, MatchTimingRules.INITIAL_PLAY_TIME.toMillis());
+                activeSide, timing.initialPlayTime().toMillis());
         match.turnStartedAt = now;
         match.turnDeadline = now.plusMillis(remaining);
     }
@@ -247,7 +252,7 @@ final class MatchTemporalService {
         }
         boolean changed = false;
         if (match.state == null && match.formationDeadline == null) {
-            match.formationDeadline = now.plus(MatchTimingRules.FORMATION_LIMIT);
+            match.formationDeadline = now.plus(timing.formationLimit());
             changed = true;
         }
         if (match.state != null
@@ -256,7 +261,7 @@ final class MatchTemporalService {
                 && match.turnDeadline == null) {
             for (PlayerSide side : PlayerSide.values()) {
                 match.remainingMillis.putIfAbsent(
-                        side, MatchTimingRules.INITIAL_PLAY_TIME.toMillis());
+                        side, timing.initialPlayTime().toMillis());
             }
             beginTurn(match, now);
             changed = true;
@@ -304,7 +309,7 @@ final class MatchTemporalService {
                         entry.getKey(), 0L);
                 long allowance = Math.max(
                         0,
-                        MatchTimingRules.RANKED_CUMULATIVE_DISCONNECT_LIMIT.toMillis()
+                        timing.rankedCumulativeDisconnectLimit().toMillis()
                                 - accumulated);
                 deadlines.add(new DeadlineTerminal(
                         entry.getValue().plusMillis(allowance),
@@ -316,7 +321,7 @@ final class MatchTemporalService {
         }
         if (match.disconnectedSince.size() == 2) {
             Instant bothGraceExpiredAt = match.disconnectedSince.values().stream()
-                    .map(disconnectedAt -> disconnectedAt.plus(MatchTimingRules.DISCONNECT_GRACE))
+                    .map(disconnectedAt -> disconnectedAt.plus(timing.disconnectGrace()))
                     .max(Comparator.naturalOrder())
                     .orElseThrow();
             deadlines.add(new DeadlineTerminal(
@@ -327,7 +332,7 @@ final class MatchTemporalService {
         }
         match.disconnectedSince.forEach((side, disconnectedAt) -> deadlines.add(
                 new DeadlineTerminal(
-                        disconnectedAt.plus(MatchTimingRules.DISCONNECT_GRACE),
+                        disconnectedAt.plus(timing.disconnectGrace()),
                         TerminalResult.win(side.opponent(), TerminalReason.DISCONNECT_FORFEIT),
                         2)));
     }

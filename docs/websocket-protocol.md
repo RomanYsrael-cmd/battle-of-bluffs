@@ -52,7 +52,11 @@ Current match update types are:
 
 ## Recovery
 
-The frontend waits for the STOMP subscription receipt, then refetches `GET /api/matches/{matchId}` after every connection or reconnection. It applies only the immediately following live sequence, ignores duplicate or delayed sequences, and performs another full safe REST refetch for a gap, wrong match ID, inconsistent version, or invalid message. Normal 1.5-second polling is disabled while synchronized. A 15-second fallback refetch runs only while connecting, disconnected, or recovering.
+The frontend waits for the STOMP subscription receipt, then refetches `GET /api/matches/{matchId}` after every connection or reconnection. It applies only the immediately following live sequence, ignores duplicate or delayed sequences, and performs another full safe REST refetch for a gap, wrong match ID, inconsistent version, or invalid message. Normal polling is disabled while synchronized. A 15-second fallback refetch runs only while connecting, disconnected, or recovering.
+
+## Ranked matchmaking
+
+Verified accounts subscribe to `/user/queue/matchmaking`. A `MATCHMAKING_FOUND` body contains match ID, opponent display name/rating, server time and only that recipient's safe initial view. `GET /api/matchmaking/status` is the recovery source if this nonauthoritative notification is missed.
 
 ## Match chat
 

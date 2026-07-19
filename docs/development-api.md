@@ -59,3 +59,57 @@ The normal frontend uses a Spring Security session and session-bound CSRF token.
 - `POST /api/matches/{matchId}/resign`
 
 All state-changing browser requests include the CSRF header returned by `GET /api/auth/csrf` and `credentials: include`. Anonymous users, nonparticipants, stale versions, reused command IDs with changed payloads, and cross-player actions are rejected.
+
+Create and command responses use this envelope:
+
+```json
+{
+  "commandId": "accepted-command-uuid-or-null",
+  "version": 2,
+  "matchId": "match-uuid",
+  "roomCode": "ABC234",
+  "view": {
+    "phase": "FORMATION",
+    "requestingSide": "PLAYER_TWO",
+    "ownPieces": [],
+    "opponentPieces": []
+  }
+}
+```
+
+Ranked `roomCode` is `null`. An active `opponentPieces` entry contains only opaque `id` and canonical `position`; rank is not serialized.
+
+## Account and competition routes
+
+- `GET /api/auth/csrf`
+- `POST /api/auth/register`, `/login`, `/logout`, `/verify-email`, `/resend-verification`, `/forgot-password`, `/reset-password`
+- `GET /api/auth/me`
+- `GET|PATCH /api/profile/me`
+- `GET /api/profiles/{username}`
+- `GET /api/profile/me/matches?page=0&size=20`
+- `GET /api/matches/{matchId}/history`
+- `GET /api/leaderboards/seasonal?page=0&size=25`
+- `GET /api/leaderboards/all-time?page=0&size=25`
+- `POST|DELETE /api/matchmaking/ranked`
+- `GET /api/matchmaking/status`
+
+## Chat and safety routes
+
+- `GET /api/matches/{matchId}/chat?afterSequence=10`
+- `GET /api/matches/{matchId}/moderation`
+- `POST|DELETE /api/matches/{matchId}/block`
+- `POST /api/matches/{matchId}/reports`
+
+Only participants may use these routes. Report payloads contain `category`, optional `comment` and up to 20 `chatMessageReferences`; the reported player is always derived by the server.
+
+## Error response
+
+```json
+{
+  "code": "STALE_VERSION",
+  "message": "Expected version does not match current match version",
+  "timestamp": "2026-07-19T00:00:00Z"
+}
+```
+
+Typical statuses are 400 for malformed input, 401 for missing/invalid authentication, 403 for CSRF or authorization, 404 for unknown resources, 409 for version/idempotency/state conflicts, 422 for legal-rule rejection and 429 for throttling. Messages are safe for display but clients should branch on `code`.

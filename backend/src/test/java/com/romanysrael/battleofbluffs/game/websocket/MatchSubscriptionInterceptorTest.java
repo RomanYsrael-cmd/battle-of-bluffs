@@ -11,6 +11,7 @@ import com.romanysrael.battleofbluffs.game.application.MatchApplicationService;
 import com.romanysrael.battleofbluffs.game.application.PlayerMatchViewMapper;
 import com.romanysrael.battleofbluffs.user.AccountPrincipal;
 import com.romanysrael.battleofbluffs.user.AccountStatus;
+import com.romanysrael.battleofbluffs.user.AccountUserDetailsService;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ class MatchSubscriptionInterceptorTest {
     private MatchApplicationService matches;
     private UUID memberId;
     private UUID matchId;
+    private AccountUserDetailsService accounts;
 
     @BeforeEach
     void setUp() {
@@ -38,8 +40,16 @@ class MatchSubscriptionInterceptorTest {
         @SuppressWarnings("unchecked")
         ObjectProvider<MatchApplicationService> provider = mock(ObjectProvider.class);
         when(provider.getObject()).thenReturn(matches);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<AccountUserDetailsService> accountProvider = mock(ObjectProvider.class);
+        accounts = mock(AccountUserDetailsService.class);
+        when(accountProvider.getObject()).thenReturn(accounts);
+        when(accounts.loadUserByUsername(org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(invocation -> principal(
+                        UUID.fromString(invocation.getArgument(0, String.class).substring(5)),
+                        AccountStatus.ACTIVE));
         interceptor = new MatchSubscriptionInterceptor(
-                provider, mock(MatchPresenceCoordinator.class));
+                provider, accountProvider, mock(MatchPresenceCoordinator.class));
     }
 
     @Test
@@ -91,6 +101,22 @@ class MatchSubscriptionInterceptorTest {
     }
 
     @Test
+    void suspendedAccountCannotUseAnExistingWebSocketAuthentication() {
+        assertThrows(AccessDeniedException.class, () -> interceptor.preSend(
+                subscription(matchId, memberId, AccountStatus.SUSPENDED),
+                mock(MessageChannel.class)));
+    }
+
+    @Test
+    void accountSuspendedAfterConnectingCannotSendOrSubscribeAgain() {
+        when(accounts.loadUserByUsername("user-" + memberId))
+                .thenReturn(principal(memberId, AccountStatus.SUSPENDED));
+
+        assertThrows(AccessDeniedException.class, () -> interceptor.preSend(
+                subscription(matchId, memberId), mock(MessageChannel.class)));
+    }
+
+    @Test
     void clientsCannotPublishForgedMessagesIntoBrokerDestinations() {
         StompHeaderAccessor headers = StompHeaderAccessor.create(StompCommand.SEND);
         headers.setDestination("/queue/matches/" + matchId);
@@ -106,14 +132,23 @@ class MatchSubscriptionInterceptorTest {
         return subscription("/user/queue/matches/" + matchId, userId);
     }
 
+    private static Message<byte[]> subscription(UUID matchId, UUID userId, AccountStatus status) {
+        return subscription("/user/queue/matches/" + matchId, userId, status);
+    }
+
     private static Message<byte[]> subscription(String destination, UUID userId) {
+        return subscription(destination, userId, AccountStatus.ACTIVE);
+    }
+
+    private static Message<byte[]> subscription(
+            String destination, UUID userId, AccountStatus status) {
         StompHeaderAccessor headers = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
         headers.setDestination(destination);
         headers.setSessionId("session-1");
         headers.setSubscriptionId("match-updates");
         if (userId != null) {
             AccountPrincipal principal = new AccountPrincipal(
-                    userId, "user-" + userId, "Player", AccountStatus.ACTIVE, "encoded");
+                    userId, "user-" + userId, "Player", status, "encoded");
             headers.setUser(UsernamePasswordAuthenticationToken.authenticated(
                     principal, principal.getPassword(), principal.getAuthorities()));
         }
@@ -132,5 +167,10 @@ class MatchSubscriptionInterceptorTest {
         return MessageBuilder.createMessage(
                 "message".getBytes(java.nio.charset.StandardCharsets.UTF_8),
                 headers.getMessageHeaders());
+    }
+
+    private static AccountPrincipal principal(UUID userId, AccountStatus status) {
+        return new AccountPrincipal(
+                userId, "user-" + userId, "Player", status, "encoded");
     }
 }

@@ -28,6 +28,8 @@ The safe player view includes:
 
 The backend evaluates deadlines every 250 milliseconds and sends a persisted `TIMER_SYNC` about every 30 seconds, plus synchronization on turns and reconnects. It does not broadcast every second. The browser animates locally and replaces its estimate on every authoritative view.
 
+Defaults are environment configurable with `RANKED_FORMATION_LIMIT`, `RANKED_INITIAL_CLOCK`, `RANKED_MOVE_INCREMENT`, `RANKED_DISCONNECT_GRACE` and `RANKED_CUMULATIVE_DISCONNECT_LIMIT`. Scheduler cadence uses `MATCH_DEADLINE_EVALUATION_MS` and `MATCH_TIMER_SYNC_MS`. Persisted absolute deadlines and remaining time are never recomputed merely because configuration changes.
+
 ## Presence and reconnect
 
 Presence comes from authenticated STOMP subscriptions and disconnect events, not `beforeunload`. Multiple browser sessions count as one connected participant until the last subscribed WebSocket closes.

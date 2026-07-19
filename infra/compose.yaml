@@ -4,22 +4,22 @@ services:
     container_name: battle-of-bluffs-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: battle_of_bluffs
-      POSTGRES_USER: battle_user
-      POSTGRES_PASSWORD: development_password
+      POSTGRES_DB: ${POSTGRES_DB:-battle_of_bluffs}
+      POSTGRES_USER: ${POSTGRES_USER:-battle_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-development_password}
     ports:
       - "5432:5432"
     volumes:
       - battle_postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U battle_user -d battle_of_bluffs"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 12
       start_period: 10s
 
   mailpit:
-    image: axllent/mailpit:v1.27
+    image: axllent/mailpit:v1.30.4
     container_name: battle-of-bluffs-mailpit
     restart: unless-stopped
     ports:

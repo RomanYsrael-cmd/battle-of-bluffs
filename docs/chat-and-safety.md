@@ -7,7 +7,7 @@ Match chat is private to the two authenticated participants. It is deliberately 
 - Plain text only; the UI renders bodies as text nodes and never interprets HTML or turns links into executable markup.
 - Leading and trailing whitespace is removed. Empty messages and messages over 500 UTF-16 characters are rejected.
 - The server generates the UUID, timestamp and ordered per-match sequence.
-- A player may send five messages in a rolling ten-second window for each match.
+- A player may send five messages in a rolling ten-second window for each match by default; `CHAT_RATE_LIMIT` and `CHAT_RATE_WINDOW` configure local deployments.
 - The latest 100 persisted messages are returned for initial history; an `afterSequence` cursor supports ordered incremental reads.
 - Deleted or unavailable accounts appear as `Former player` rather than exposing stale private account details.
 

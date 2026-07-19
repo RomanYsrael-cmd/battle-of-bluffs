@@ -111,6 +111,34 @@ class AccountServiceTest {
     }
 
     @Test
+    void expiredVerificationAndPasswordResetTokensAreRejectedWithoutMutatingAccounts() {
+        UserAccountEntity account = account(AccountStatus.UNVERIFIED);
+        String verificationSecret = "expired-verification";
+        String resetSecret = "expired-reset";
+        EmailVerificationTokenEntity verification = new EmailVerificationTokenEntity(
+                UUID.randomUUID(), account.getId(), tokenGenerator.hash(verificationSecret),
+                NOW.minusSeconds(1), NOW.minusSeconds(120));
+        PasswordResetTokenEntity reset = new PasswordResetTokenEntity(
+                UUID.randomUUID(), account.getId(), tokenGenerator.hash(resetSecret),
+                NOW.minusSeconds(1), NOW.minusSeconds(120));
+        when(verificationTokens.findByTokenHash(tokenGenerator.hash(verificationSecret)))
+                .thenReturn(Optional.of(verification));
+        when(resetTokens.findByTokenHash(tokenGenerator.hash(resetSecret)))
+                .thenReturn(Optional.of(reset));
+
+        assertThatThrownBy(() -> service.verifyEmail(verificationSecret))
+                .isInstanceOf(AccountException.class)
+                .extracting(exception -> ((AccountException) exception).code())
+                .isEqualTo("INVALID_TOKEN");
+        assertThatThrownBy(() -> service.resetPassword(resetSecret, "Replacement!2026"))
+                .isInstanceOf(AccountException.class)
+                .extracting(exception -> ((AccountException) exception).code())
+                .isEqualTo("INVALID_TOKEN");
+        assertThat(account.isEmailVerified()).isFalse();
+        verify(passwordEncoder, never()).encode("Replacement!2026");
+    }
+
+    @Test
     void passwordResetIsOneTimeAndExpiresEveryActiveSessionForTheAccount() {
         String rawToken = "password-reset-secret";
         UserAccountEntity account = account(AccountStatus.ACTIVE);

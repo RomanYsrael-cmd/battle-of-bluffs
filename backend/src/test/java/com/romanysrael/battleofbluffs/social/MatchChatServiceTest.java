@@ -53,7 +53,9 @@ class MatchChatServiceTest {
                 blocks,
                 accounts,
                 messaging,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                5,
+                java.time.Duration.ofSeconds(10));
     }
 
     @Test
@@ -148,7 +150,9 @@ class MatchChatServiceTest {
                 blocks,
                 accounts,
                 messaging,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                5,
+                java.time.Duration.ofSeconds(10));
 
         assertThatThrownBy(() -> securedChat.history(created.view().matchId(), outsiderId, null))
                 .isInstanceOf(MatchApplicationException.class)
