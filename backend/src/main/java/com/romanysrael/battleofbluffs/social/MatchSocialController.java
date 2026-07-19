@@ -87,5 +87,6 @@ public class MatchSocialController {
             @NotNull ReportCategory category,
             @Size(max = 1000) String comment,
             @Size(max = 20) List<@NotNull UUID> chatMessageReferences) {
+        @Override public String toString() { return "ReportRequest[category=" + category + ", content=REDACTED]"; }
     }
 }

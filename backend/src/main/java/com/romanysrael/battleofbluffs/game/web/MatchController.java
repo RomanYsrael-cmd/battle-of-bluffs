@@ -197,6 +197,10 @@ public final class MatchController {
             @NotNull UUID commandId,
             @Positive long expectedVersion,
             @NotNull @Size(min = 21, max = 21) List<@Valid FormationItem> pieces) {
+        @Override public String toString() {
+            return "FormationRequest[commandId=" + commandId + ", expectedVersion="
+                    + expectedVersion + ", pieces=REDACTED]";
+        }
     }
 
     public record MoveRequest(

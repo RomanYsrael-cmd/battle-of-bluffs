@@ -1,15 +1,35 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
   pull_request:
 
+concurrency:
+  # Push and pull_request runs for the same branch must not bootstrap separate
+  # vulnerability databases concurrently from GitHub-hosted runners.
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
-  backend:
+  secret-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
           java-version: '17'
@@ -17,12 +37,63 @@ jobs:
       - name: Test backend
         working-directory: backend
         run: ./mvnw test
+      - name: Analyze dependency declarations
+        working-directory: backend
+        run: ./mvnw dependency:analyze
+      - name: Restore OWASP vulnerability database
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/dependency-check-data
+          key: dependency-check-${{ runner.os }}-12.2.2-${{ github.run_id }}
+          restore-keys: |
+            dependency-check-${{ runner.os }}-12.2.2-
+      - name: Update OWASP vulnerability database
+        working-directory: backend
+        env:
+          ODC_DATA_DIRECTORY: ${{ runner.temp }}/dependency-check-data
+        run: |
+          for attempt in 1 2; do
+            if ./mvnw org.owasp:dependency-check-maven:12.2.2:update-only \
+              -DdataDirectory="$ODC_DATA_DIRECTORY" \
+              -DnvdDatafeedUrl='https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz'; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 2 ]; then
+              echo "OWASP vulnerability database update failed after $attempt attempts" >&2
+              exit 1
+            fi
+
+            echo "OWASP vulnerability database update failed; purging the partial database before one retry" >&2
+            ./mvnw org.owasp:dependency-check-maven:12.2.2:purge \
+              -DdataDirectory="$ODC_DATA_DIRECTORY"
+            sleep 90
+          done
+      - name: Scan backend dependencies
+        working-directory: backend
+        env:
+          ODC_DATA_DIRECTORY: ${{ runner.temp }}/dependency-check-data
+        run: >-
+          ./mvnw org.owasp:dependency-check-maven:12.2.2:check
+          -DdataDirectory="$ODC_DATA_DIRECTORY"
+          -DautoUpdate=false
+          -DskipTestScope=true
+          -DfailBuildOnCVSS=7
+      - name: Generate backend SBOM
+        working-directory: backend
+        run: ./mvnw -DskipTests org.cyclonedx:cyclonedx-maven-plugin:2.9.2:makeAggregateBom
+      - name: Upload backend SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backend-sbom
+          path: backend/target/bom.*
+          retention-days: 14
 
   frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           cache: npm
@@ -36,12 +107,24 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+      - name: Audit production dependencies
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+      - name: Generate frontend SBOM
+        working-directory: frontend
+        run: npx --yes @cyclonedx/cyclonedx-npm@6.0.0 --omit dev --output-file frontend-bom.json
+      - name: Upload frontend SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: frontend-sbom
+          path: frontend/frontend-bom.json
+          retention-days: 14
 
   end-to-end:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:18
+        image: postgres:18.4
         env:
           POSTGRES_DB: battle_of_bluffs
           POSTGRES_USER: battle_user
@@ -64,13 +147,13 @@ jobs:
           --health-timeout 5s
           --health-retries 12
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           cache: npm
@@ -115,10 +198,11 @@ jobs:
         run: npm run test:e2e
       - name: Upload browser diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-diagnostics
           if-no-files-found: ignore
+          retention-days: 7
           path: |
             frontend/test-results/
             frontend/playwright-report/

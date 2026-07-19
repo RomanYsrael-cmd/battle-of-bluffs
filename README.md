@@ -2,6 +2,8 @@
 
 Games of the Generals is a local-development-ready, server-authoritative implementation of the Filipino hidden-information strategy game. It supports persistent browser accounts, private casual rooms, ranked pairing, live play, clocks, text chat, safety controls, profiles, history, ratings and leaderboards. The authoritative rules are in [docs/game-rules.md](docs/game-rules.md).
 
+Production must use `SPRING_PROFILES_ACTIVE=prod`, external database/SMTP secrets and an exact HTTPS `FRONTEND_URL`; the development Compose stack and sample credentials are not production-safe. Review [production deployment security](docs/production-deployment-security.md), [security controls](docs/security.md), and the [production audit](docs/security-audit-production.md). Report vulnerabilities privately to the repository owner without live secrets or personal data.
+
 Video and voice are intentionally outside this project.
 
 ## Architecture

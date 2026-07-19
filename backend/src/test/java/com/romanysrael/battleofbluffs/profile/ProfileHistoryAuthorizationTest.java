@@ -1,6 +1,7 @@
 package com.romanysrael.battleofbluffs.profile;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -22,7 +23,7 @@ import org.junit.jupiter.api.Test;
 
 class ProfileHistoryAuthorizationTest {
     @Test
-    void activeMatchHistoryGivesParticipantSafeViewAndOutsiderOnlyPublicSummary() {
+    void activeMatchHistoryGivesParticipantSafeViewAndHidesExistenceFromOutsider() {
         MatchApplicationService matches = new MatchApplicationService(
                 new InMemoryMatchRepository(), new PlayerMatchViewMapper());
         UUID hostId = UUID.randomUUID();
@@ -38,14 +39,12 @@ class ProfileHistoryAuthorizationTest {
                 mock(RatingService.class));
 
         ProfileService.MatchHistoryView participant = profiles.history(matchId, hostId);
-        ProfileService.MatchHistoryView outsider = profiles.history(matchId, outsiderId);
-
         assertThat(participant.participant()).isTrue();
         assertThat(participant.participantView()).isNotNull();
-        assertThat(outsider.participant()).isFalse();
-        assertThat(outsider.participantView()).isNull();
-        assertThat(outsider.summary().terminalResult()).isNull();
-        assertThat(outsider.summary().acceptedMoveCount()).isNull();
+        assertThatThrownBy(() -> profiles.history(matchId, outsiderId))
+                .isInstanceOf(com.romanysrael.battleofbluffs.user.AccountException.class)
+                .extracting(exception -> ((com.romanysrael.battleofbluffs.user.AccountException) exception).code())
+                .isEqualTo("MATCH_NOT_FOUND");
     }
 
     @Test
@@ -85,5 +84,22 @@ class ProfileHistoryAuthorizationTest {
         assertThat(profile.recentMatches()).singleElement()
                 .extracting(ProfileService.MatchListItem::outcome)
                 .isEqualTo("CANCELLED");
+    }
+
+    @Test
+    void extremeRecentMatchPageReturnsEmptyWithoutIntegerOverflow() {
+        UUID userId = UUID.randomUUID();
+        ProfileService profiles = new ProfileService(
+                mock(UserAccountRepository.class),
+                mock(AccountService.class),
+                new MatchApplicationService(new InMemoryMatchRepository(), new PlayerMatchViewMapper()),
+                mock(MatchAggregateJpaRepository.class),
+                mock(RatingService.class));
+
+        ProfileService.PageView<ProfileService.MatchListItem> page =
+                profiles.recent(userId, Integer.MAX_VALUE, 100);
+
+        assertThat(page.items()).isEmpty();
+        assertThat(page.page()).isEqualTo(Integer.MAX_VALUE);
     }
 }

@@ -81,3 +81,5 @@ Its JSON payload contains only `{ "body": "plain text" }`. The server checks mem
 Successful delivery contains a server-generated message ID, match ID, monotonically increasing chat sequence, display name, participant-specific `ownMessage` flag, plain-text body and server timestamp. History is available only to participants through `GET /api/matches/{matchId}/chat`; reconnect loads up to the latest 100 persisted messages and deduplicates by message ID.
 
 Blocking either direction disables subsequent delivery. The client receives validation, blocking and rate-limit failures on the chat-error destination. These errors do not modify the authoritative match version or disclose game-piece information.
+
+The handshake accepts only the exact configured frontend origin. Transport ceilings are 16 KiB per message, 64 KiB buffered sends, 10 seconds per send and 15 seconds to the first message; broker heartbeats are 10 seconds. Client-supplied identity is ignored in favor of the authenticated session principal. These limits and the simple broker remain single-instance controls.

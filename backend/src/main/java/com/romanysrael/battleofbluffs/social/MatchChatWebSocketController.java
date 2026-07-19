@@ -53,6 +53,7 @@ public class MatchChatWebSocketController {
     }
 
     public record ChatRequest(String body) {
+        @Override public String toString() { return "ChatRequest[REDACTED]"; }
     }
 
     public record ChatError(String code, String message, Instant serverTimestamp) {

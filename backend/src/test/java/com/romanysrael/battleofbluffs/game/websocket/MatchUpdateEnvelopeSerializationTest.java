@@ -2,6 +2,7 @@ package com.romanysrael.battleofbluffs.game.websocket;
 
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.romanysrael.battleofbluffs.game.application.MatchMode;
 import com.romanysrael.battleofbluffs.game.application.MatchUpdatePublisher.UpdateType;
@@ -62,5 +63,6 @@ class MatchUpdateEnvelopeSerializationTest {
         assertTrue(json.contains("\"type\":\"PLAYER_JOINED\""));
         assertTrue(json.contains("\"serverTimestamp\":\"2026-07-19T10:15:30Z\""));
         assertTrue(json.contains("\"view\""));
+        assertThat(view.toString()).doesNotContain("ownPieces", "opponentPieces", "rank");
     }
 }

@@ -1,0 +1,78 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:10000}
+  flyway:
+    enabled: true
+    validate-on-migrate: true
+    clean-disabled: true
+  jpa:
+    hibernate:
+      ddl-auto: none
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+
+server:
+  forward-headers-strategy: none
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+    whitelabel:
+      enabled: false
+  servlet:
+    session:
+      timeout: ${SESSION_IDLE_TIMEOUT:30m}
+      cookie:
+        name: __Host-GOTGSESSION
+        http-only: true
+        same-site: strict
+        secure: true
+        path: /
+  max-http-request-header-size: 16KB
+  tomcat:
+    max-http-form-post-size: 1MB
+    max-swallow-size: 1MB
+
+app:
+  frontend-url: ${FRONTEND_URL}
+  allowed-hosts: ${ALLOWED_HOSTS}
+  session:
+    absolute-timeout: ${SESSION_ABSOLUTE_TIMEOUT:12h}
+  mail:
+    from: ${MAIL_FROM}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+  info:
+    env:
+      enabled: false
+
+logging:
+  pattern:
+    level: "%5p [requestId:%X{requestId:-none}]"
+  level:
+    root: INFO
+    org.springframework: INFO
+    org.hibernate: INFO
+    org.springframework.web: INFO
+    org.hibernate.SQL: OFF

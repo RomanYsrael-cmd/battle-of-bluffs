@@ -39,3 +39,9 @@ The simple STOMP broker is an in-process delivery mechanism, not the source of t
 Flyway owns schema evolution. JPA has `ddl-auto: none`. Schedulers evaluate deadlines, send timer synchronization and reconcile missing rating ledgers. All time-sensitive services use the injected UTC `Clock`, enabling deterministic unit tests.
 
 There are no microservices, Redis, JPA-backed queue, video, voice, LiveKit or external identity provider in this milestone.
+
+## Security trust boundaries
+
+The browser is untrusted and holds no authentication credential outside the HttpOnly cookie. REST identity comes from the Spring principal and participant ownership is enforced in services. STOMP permits only enumerated user destinations and participant chat sends; every match update is a distinct player projection. PostgreSQL is authoritative for aggregates, idempotency and ratings.
+
+Production assumes a TLS reverse proxy in front of a private backend and database. Host and forwarded headers never construct account links; the configured HTTPS frontend origin is the sole link/origin authority. See [production-deployment-security.md](production-deployment-security.md).

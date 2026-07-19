@@ -45,7 +45,10 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
     headers,
     credentials: 'include',
   })
-  if (response.status === 401) window.dispatchEvent(new Event('gotg:session-expired'))
+  if (response.status === 401) {
+    clearCsrfToken()
+    window.dispatchEvent(new Event('gotg:session-expired'))
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => null) as {
       code?: string

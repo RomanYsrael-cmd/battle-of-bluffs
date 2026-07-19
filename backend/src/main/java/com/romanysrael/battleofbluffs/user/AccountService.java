@@ -3,6 +3,7 @@ package com.romanysrael.battleofbluffs.user;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.text.Normalizer;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -55,9 +56,9 @@ public class AccountService {
 
     @Transactional
     public AccountView register(RegisterAccount command) {
-        String username = command.username().strip();
-        String email = command.email().strip();
-        String displayName = command.displayName().strip();
+        String username = canonical(command.username()).strip();
+        String email = canonical(command.email()).strip();
+        String displayName = Normalizer.normalize(command.displayName(), Normalizer.Form.NFC).strip();
         validateUsername(username);
         validateEmail(email);
         validateDisplayName(displayName);
@@ -226,7 +227,11 @@ public class AccountService {
     }
 
     private static String normalize(String value) {
-        return value.strip().toLowerCase(Locale.ROOT);
+        return canonical(value).strip().toLowerCase(Locale.ROOT);
+    }
+
+    private static String canonical(String value) {
+        return Normalizer.normalize(value, Normalizer.Form.NFKC);
     }
 
     private static void requireUsable(Instant usedAt, Instant expiresAt, Instant now) {

@@ -24,6 +24,16 @@ class AccountRateLimiterTest {
         assertRateLimited(() -> limiter.requireResetPassword("client-a"));
     }
 
+    @Test
+    void attackerControlledKeysCannotGrowTheLimiterPastItsHardBound() {
+        AccountRateLimiter limiter = limiter(2);
+        for (int index = 0; index < AccountRateLimiter.MAXIMUM_KEYS; index++) {
+            limiter.requireRegistration("client-" + index);
+        }
+
+        assertRateLimited(() -> limiter.requireRegistration("overflow-client"));
+    }
+
     private static AccountRateLimiter limiter(int maximum) {
         Duration window = Duration.ofMinutes(15);
         return new AccountRateLimiter(
