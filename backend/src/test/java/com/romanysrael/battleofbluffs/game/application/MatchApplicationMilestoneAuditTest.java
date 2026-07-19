@@ -56,6 +56,41 @@ class MatchApplicationMilestoneAuditTest {
     }
 
     @Test
+    void liveDeliveryFailureCannotTurnAPersistedAcceptedCommandIntoAClientFailure() {
+        service.setUpdatePublisher(update -> {
+            throw new IllegalStateException("broker unavailable");
+        });
+        MatchCommandResult created = service.createMatch(new CreateMatchCommand("alice"));
+
+        MatchCommandResult joined = assertDoesNotThrow(() -> service.joinMatch(
+                new JoinMatchCommand(
+                        UUID.randomUUID(), created.view().roomCode(), "bob", created.version())));
+
+        assertEquals(2, joined.version());
+        assertTrue(service.getView(created.view().matchId(), "alice").playerTwoOccupied());
+    }
+
+    @Test
+    void exactCommandRetryReplaysWithoutPublishingTheAcceptedVersionTwice() {
+        List<MatchUpdatePublisher.MatchUpdate> updates = new ArrayList<>();
+        service.setUpdatePublisher(updates::add);
+        MatchCommandResult created = service.createMatch(new CreateMatchCommand("alice"));
+        JoinMatchCommand join = new JoinMatchCommand(
+                UUID.randomUUID(), created.view().roomCode(), "bob", created.version());
+
+        MatchCommandResult first = service.joinMatch(join);
+        MatchCommandResult retry = service.joinMatch(join);
+
+        assertEquals(first, retry);
+        assertEquals(1, updates.size());
+        assertEquals(2, updates.get(0).sequence());
+        assertEquals(Set.of("alice", "bob"), updates.get(0).playerViews().keySet());
+        assertNotEquals(
+                updates.get(0).playerViews().get("alice").requestingSide(),
+                updates.get(0).playerViews().get("bob").requestingSide());
+    }
+
+    @Test
     void unknownRoomCodeUnknownMatchAndUnknownViewerAreRejected() {
         assertCode(MatchErrorCode.MATCH_NOT_FOUND, () -> service.joinMatch(
                 UUID.randomUUID(), new JoinMatchCommand(UUID.randomUUID(), "UNKNOWN", "bob", 1)));

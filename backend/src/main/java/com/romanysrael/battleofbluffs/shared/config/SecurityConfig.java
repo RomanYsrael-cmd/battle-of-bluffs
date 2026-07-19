@@ -102,6 +102,7 @@ public class SecurityConfig {
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password").permitAll()
                         .requestMatchers("/api/dev/**").permitAll()
+                        .requestMatchers("/ws", "/ws/**").authenticated()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
                 .build();

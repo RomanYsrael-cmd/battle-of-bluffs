@@ -5,10 +5,14 @@ import static com.romanysrael.battleofbluffs.game.application.Commands.*;
 import com.romanysrael.battleofbluffs.game.domain.*;
 import java.security.SecureRandom;
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public final class MatchApplicationService {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MatchApplicationService.class);
     public static final long INITIAL_VERSION = 1;
     private static final int COMMAND_HISTORY_LIMIT = 256;
     private static final char[] ROOM_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
@@ -22,6 +26,7 @@ public final class MatchApplicationService {
             Map.entry(Rank.PRIVATE, 6), Map.entry(Rank.SPY, 2), Map.entry(Rank.FLAG, 1));
     private final MatchRepository repository;
     private final PlayerMatchViewMapper mapper;
+    private MatchUpdatePublisher updatePublisher = update -> { };
     private final MoveValidator moveValidator = new MoveValidator();
     private final BattleResolver battleResolver = new BattleResolver();
     private final VictoryEvaluator victoryEvaluator = new VictoryEvaluator();
@@ -30,6 +35,11 @@ public final class MatchApplicationService {
     public MatchApplicationService(MatchRepository repository, PlayerMatchViewMapper mapper) {
         this.repository = repository;
         this.mapper = mapper;
+    }
+
+    @Autowired(required = false)
+    void setUpdatePublisher(MatchUpdatePublisher updatePublisher) {
+        this.updatePublisher = updatePublisher;
     }
 
     public MatchCommandResult createMatch(CreateMatchCommand command) {
@@ -75,7 +85,8 @@ public final class MatchApplicationService {
             match.version++;
             addEvent(match, PublicMatchEvent.Type.PLAYER_JOINED, PlayerSide.PLAYER_TWO,
                     null, null, null, null, null, List.of(), null);
-            return remember(match, command.commandId(), fingerprint, playerId);
+            return remember(match, command.commandId(), fingerprint, playerId,
+                    MatchUpdatePublisher.UpdateType.PLAYER_JOINED);
         }
     }
 
@@ -116,7 +127,8 @@ public final class MatchApplicationService {
             updatePublicPieceIds(match, side, pieces);
             match.formations.put(side, pieces);
             match.version++;
-            return remember(match, command.commandId(), fingerprint, command.playerId());
+            return remember(match, command.commandId(), fingerprint, command.playerId(),
+                    MatchUpdatePublisher.UpdateType.FORMATION_SUBMITTED);
         }
     }
 
@@ -146,7 +158,10 @@ public final class MatchApplicationService {
             if (match.locked.size() == 2) {
                 start(match);
             }
-            return remember(match, command.commandId(), fingerprint, command.playerId());
+            MatchUpdatePublisher.UpdateType updateType = match.locked.size() == 2
+                    ? MatchUpdatePublisher.UpdateType.MATCH_STARTED
+                    : MatchUpdatePublisher.UpdateType.FORMATION_LOCKED;
+            return remember(match, command.commandId(), fingerprint, command.playerId(), updateType);
         }
     }
 
@@ -182,7 +197,8 @@ public final class MatchApplicationService {
                                 TerminalResult.win(flag.owner(), TerminalReason.FLAG_BACK_ROW),
                                 match.state.acceptedMoveCount());
                         match.version++;
-                        return remember(match, command.commandId(), fingerprint, command.playerId());
+                        return remember(match, command.commandId(), fingerprint, command.playerId(),
+                                MatchUpdatePublisher.UpdateType.MATCH_ENDED);
                     }
                 }
             }
@@ -192,7 +208,8 @@ public final class MatchApplicationService {
             }
             applyMove(match, move);
             match.version++;
-            return remember(match, command.commandId(), fingerprint, command.playerId());
+            return remember(match, command.commandId(), fingerprint, command.playerId(),
+                    moveUpdateType(match));
         }
     }
 
@@ -218,7 +235,8 @@ public final class MatchApplicationService {
                     null, null, null, null, null, List.of(), result);
             terminal(match, match.state.board(), result, match.state.acceptedMoveCount());
             match.version++;
-            return remember(match, command.commandId(), fingerprint, command.playerId());
+            return remember(match, command.commandId(), fingerprint, command.playerId(),
+                    MatchUpdatePublisher.UpdateType.MATCH_ENDED);
         }
     }
 
@@ -475,7 +493,7 @@ public final class MatchApplicationService {
 
     private MatchCommandResult remember(
             PrivateMatch match, UUID commandId, PrivateMatch.CommandFingerprint fingerprint,
-            String playerId) {
+            String playerId, MatchUpdatePublisher.UpdateType updateType) {
         MatchCommandResult result = new MatchCommandResult(
                 commandId, match.version, mapper.map(match, playerId));
         match.commands.put(commandId, new PrivateMatch.StoredCommand(fingerprint, result));
@@ -483,7 +501,37 @@ public final class MatchApplicationService {
             match.commands.remove(match.commands.keySet().iterator().next());
         }
         repository.save(match);
+        publishUpdate(match, updateType);
         return result;
+    }
+
+    private MatchUpdatePublisher.UpdateType moveUpdateType(PrivateMatch match) {
+        if (match.state.isTerminal()) {
+            return MatchUpdatePublisher.UpdateType.MATCH_ENDED;
+        }
+        PublicMatchEvent.Type latestType = match.events.get(match.events.size() - 1).type();
+        return switch (latestType) {
+            case BATTLE_RESOLVED -> MatchUpdatePublisher.UpdateType.BATTLE_RESOLVED;
+            case FLAG_CHALLENGE_STARTED -> MatchUpdatePublisher.UpdateType.FLAG_CHALLENGE_STARTED;
+            default -> MatchUpdatePublisher.UpdateType.MOVE_APPLIED;
+        };
+    }
+
+    private void publishUpdate(
+            PrivateMatch match, MatchUpdatePublisher.UpdateType updateType) {
+        Map<String, PlayerMatchView> playerViews = new HashMap<>();
+        match.players.values().forEach(playerId ->
+                playerViews.put(playerId, mapper.map(match, playerId)));
+        try {
+            updatePublisher.publish(new MatchUpdatePublisher.MatchUpdate(
+                    match.id, match.version, updateType, playerViews));
+        } catch (RuntimeException exception) {
+            LOGGER.warn(
+                    "Match {} version {} was persisted but its live update could not be published",
+                    match.id,
+                    match.version,
+                    exception);
+        }
     }
 
     private MatchCommandResult replay(

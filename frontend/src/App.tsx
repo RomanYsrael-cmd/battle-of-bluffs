@@ -28,19 +28,74 @@ import {
   saveSession,
   type MatchSession,
 } from './session/session'
+import {
+  assessMatchUpdate,
+  connectMatchUpdates,
+  type MatchConnectionState,
+} from './realtime/matchSocket'
 
 const matchQueryKey = (session: MatchSession) => ['match', session.matchId]
 
 function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () => void }) {
   const queryClient = useQueryClient()
   const [syncMessage, setSyncMessage] = useState('')
+  const [connectionState, setConnectionState] = useState<MatchConnectionState>('CONNECTING')
   const query = useQuery({
     queryKey: matchQueryKey(session),
     queryFn: () => getPlayerView(session.matchId),
     retry: false,
-    refetchInterval: (currentQuery) =>
-      currentQuery.state.data?.phase === 'TERMINAL' ? false : 1_500,
+    refetchInterval: (currentQuery) => {
+      if (currentQuery.state.data?.phase === 'TERMINAL') return false
+      return connectionState === 'SYNCHRONIZED' ? false : 15_000
+    },
   })
+
+  useEffect(() => {
+    let active = true
+    const refetchSafeView = (recoveredMessage = '') => {
+      void queryClient.fetchQuery({
+        queryKey: matchQueryKey(session),
+        queryFn: () => getPlayerView(session.matchId),
+      }).then(() => {
+        if (!active) return
+        setConnectionState('SYNCHRONIZED')
+        setSyncMessage(recoveredMessage)
+      }).catch(() => {
+        if (active) setConnectionState('RECOVERING')
+      })
+    }
+
+    const disconnect = connectMatchUpdates(session.matchId, {
+      onState: setConnectionState,
+      onConnected: () => refetchSafeView(),
+      onUpdate: (update) => {
+        const current = queryClient.getQueryData<CommandResponse['view']>(matchQueryKey(session))
+        if (!current) {
+          setConnectionState('RECOVERING')
+          refetchSafeView()
+          return
+        }
+        const decision = assessMatchUpdate(session.matchId, current.version, update)
+        if (decision === 'APPLY') {
+          queryClient.setQueryData(matchQueryKey(session), update.view)
+          setConnectionState('SYNCHRONIZED')
+          setSyncMessage('')
+        } else if (decision === 'REFETCH') {
+          setConnectionState('RECOVERING')
+          setSyncMessage('Update gap detected. Recovering the latest safe state…')
+          refetchSafeView('Sequence gap recovered.')
+        }
+      },
+      onInvalidMessage: () => {
+        setConnectionState('RECOVERING')
+        refetchSafeView()
+      },
+    })
+    return () => {
+      active = false
+      disconnect()
+    }
+  }, [queryClient, session])
 
   const acceptResponse = (response: CommandResponse) => {
     queryClient.setQueryData(matchQueryKey(session), response.view)
@@ -70,6 +125,9 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
   return (
     <main className="app-shell">
       <MatchHeader view={query.data} onLeave={onLeave} />
+      <p className={`connection-state connection-state--${connectionState.toLowerCase()}`} role="status">
+        {connectionLabel(connectionState)}
+      </p>
       {syncMessage && <p className="sync-message" role="status">{syncMessage}</p>}
       {query.data.phase === 'FORMATION' ? (
         <FormationScreen
@@ -89,6 +147,15 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
       )}
     </main>
   )
+}
+
+function connectionLabel(state: MatchConnectionState): string {
+  switch (state) {
+    case 'SYNCHRONIZED': return 'Live updates synchronized'
+    case 'RECONNECTING': return 'Live updates disconnected — reconnecting'
+    case 'RECOVERING': return 'Recovering the authoritative match state'
+    default: return 'Connecting live updates'
+  }
 }
 
 function MatchApplication() {

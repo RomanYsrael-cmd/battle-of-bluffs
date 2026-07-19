@@ -4,6 +4,19 @@ import App from './App'
 import { commandResponse, jsonResponse, matchView } from './test-fixtures'
 import { loadSession } from './session/session'
 
+vi.mock('./realtime/matchSocket', async (importOriginal) => {
+  const original = await importOriginal<typeof import('./realtime/matchSocket')>()
+  return {
+    ...original,
+    connectMatchUpdates: (_matchId: string, callbacks: {
+      onState: (state: 'SYNCHRONIZED') => void
+    }) => {
+      callbacks.onState('SYNCHRONIZED')
+      return () => undefined
+    },
+  }
+})
+
 describe('private room entry flows', () => {
   const account = {
     id: '10000000-0000-4000-8000-000000000001',

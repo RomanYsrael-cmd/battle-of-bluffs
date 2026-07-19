@@ -122,6 +122,9 @@ h2 { font-size: 1.65rem; }
 .match-meta label { color: #9c9385; font-size: .68rem; }
 .room-code-display { display: block; width: 9rem; margin-top: .25rem; padding: .5rem .65rem; }
 .waiting-message, .challenge-notice, .sync-message { padding: .8rem 1rem; border-left: 3px solid #d09b46; background: #2b2114; color: #e5c281; }
+.connection-state { margin: .5rem 0; color: #8f9aa7; font-size: .8rem; }
+.connection-state--synchronized { color: #78b894; }
+.connection-state--reconnecting, .connection-state--recovering { color: #d9ad67; }
 .opponent-status { color: #a69b88; font-size: .8rem; }
 .match-workspace { display: grid; grid-template-columns: minmax(600px, 1.4fr) minmax(280px, .6fr); gap: 1.2rem; align-items: start; }
 .history-panel { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; }

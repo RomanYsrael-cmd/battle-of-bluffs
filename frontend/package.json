@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@stomp/stompjs": "^7.3.0",
     "@tailwindcss/vite": "^4.1.0",
     "@tanstack/react-query": "^5.101.2",
     "react": "^19.2.0",
