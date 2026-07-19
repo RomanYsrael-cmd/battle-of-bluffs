@@ -103,6 +103,7 @@ h2 { font-size: 1.65rem; }
 .account-bar { display: flex; justify-content: flex-end; align-items: center; gap: .8rem; padding: .7rem clamp(1rem, 4vw, 4.5rem); border-bottom: 1px solid #393229; background: #15120e; color: #c7b99f; font-size: .78rem; }
 .account-bar nav { display: flex; flex-wrap: wrap; gap: .9rem; margin-right: auto; }
 .account-bar nav a { text-decoration: none; }
+.account-bar nav .current-game-indicator { padding: .1rem .45rem; border: 1px solid #8a6d39; border-radius: 999px; color: #f0d8aa; }
 .account-bar button { border: 0; background: transparent; color: #e1bd77; font-weight: 800; cursor: pointer; }
 .landing-page { min-height: 100vh; }
 .landing-navigation { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
@@ -120,6 +121,13 @@ h2 { font-size: 1.65rem; }
 .landing-briefing li:last-child { padding-bottom: 0; border-bottom: 0; }
 .landing-briefing span { color: #9c9385; font-size: .82rem; line-height: 1.45; }
 .home-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem; max-width: 960px; }
+.current-games { max-width: 960px; margin-bottom: 2rem; padding: 1.5rem; border: 1px solid #a27a36; border-radius: 1.2rem; background: rgba(45, 35, 20, .96); box-shadow: 0 18px 50px rgba(0,0,0,.22); }
+.current-games__list { display: grid; gap: 1rem; }
+.current-game-card { display: flex; justify-content: space-between; align-items: center; gap: 1.5rem; padding: 1rem; border: 1px solid #55462f; border-radius: .8rem; background: #1c1812; }
+.current-game-card p { margin: .3rem 0; color: #aaa394; }
+.current-game-card__time { font-size: .75rem; }
+.current-game-card__actions, .open-match-conflict__actions { display: grid; min-width: 11rem; gap: .55rem; }
+.integrity-warning { padding: .65rem .8rem; border-left: 3px solid #d09b46; color: #e5c281; }
 .entry-card, .history-panel, .terminal-panel { padding: 1.5rem; border: 1px solid #393229; border-radius: 1.2rem; background: rgba(31, 27, 21, .94); }
 .entry-card p { color: #aaa394; line-height: 1.55; }
 .entry-card label { display: block; margin: 1rem 0 .35rem; color: #c7b99f; font-size: .8rem; font-weight: 700; }
@@ -127,6 +135,7 @@ h2 { font-size: 1.65rem; }
 .queue-connection { color: #aaa394; font-size: .82rem; }
 .queue-status { display: grid; gap: .55rem; }
 .queue-status span { color: #aaa394; }
+.open-match-conflict { padding: .8rem; border: 1px solid #864c43; border-radius: .65rem; background: #2b1714; }
 .text-input, .room-code-display { width: 100%; border: 1px solid #5a4933; border-radius: .55rem; background: #15120e; color: #f0d8aa; }
 .text-input { padding: .8rem; }
 .room-code-input, .room-code-display { font-family: ui-monospace, monospace; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
@@ -267,6 +276,7 @@ h2 { font-size: 1.65rem; }
   .actions .button { flex: 1 1 45%; }
   .button--primary { margin-left: 0; }
   .home-actions { grid-template-columns: 1fr; }
+  .current-game-card { align-items: stretch; flex-direction: column; }
   .match-header { flex-direction: column; }
   .match-header__actions { justify-items: start; }
   .disclosure-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

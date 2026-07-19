@@ -22,26 +22,88 @@ const accounts = {
 }
 const firstState = 'test-results/first-auth.json'
 const secondState = 'test-results/second-auth.json'
+const outsiderState = 'test-results/outsider-auth.json'
 
 test.describe.serial('complete local platform', () => {
-  test('E2E 1 — two accounts register, verify, log out and log back in independently', async ({ browser }) => {
+  test('E2E 1 — accounts register, verify, log out and log back in independently', async ({ browser }) => {
     const first = await browser.newContext()
     const second = await browser.newContext()
+    const outsider = await browser.newContext()
     try {
       await registerVerifyAndLogin(first, accounts.first)
       await registerVerifyAndLogin(second, accounts.second)
+      await registerVerifyAndLogin(outsider, accounts.outsider)
 
       await logoutAndLogin(first, accounts.first.username)
       await logoutAndLogin(second, accounts.second.username)
       await first.storageState({ path: firstState })
       await second.storageState({ path: secondState })
+      await outsider.storageState({ path: outsiderState })
     } finally {
       await first.close()
       await second.close()
+      await outsider.close()
     }
   })
 
-  test('E2E 2 — casual room supports formation, chat, live move, resignation, disclosure and history', async ({ browser }) => {
+  test('E2E 2 — abandoned lobby recovery, cancellation, and guest replacement are durable', async ({ browser }) => {
+    const first = await browser.newContext({ storageState: firstState })
+    const second = await browser.newContext({ storageState: secondState })
+    const outsider = await browser.newContext({ storageState: outsiderState })
+    try {
+      const firstPage = await first.newPage()
+      const secondPage = await second.newPage()
+      const outsiderPage = await outsider.newPage()
+
+      await firstPage.goto('/')
+      await firstPage.getByRole('button', { name: 'Create private match' }).click()
+      const abandonedRoomCodeInput = firstPage.getByLabel('Room code')
+      await expect(abandonedRoomCodeInput).toHaveValue(/^[A-Z2-9]{6}$/)
+      const abandonedRoomCode = await abandonedRoomCodeInput.inputValue()
+      await firstPage.goto('/history')
+      await firstPage.goto('/')
+      const currentGame = firstPage.locator('.current-games')
+      await expect(currentGame).toContainText(abandonedRoomCode)
+      await currentGame.getByRole('button', { name: 'Continue game' }).click()
+      await expect(firstPage.getByLabel('Room code')).toHaveValue(abandonedRoomCode)
+      await firstPage.getByRole('button', { name: 'Back to dashboard' }).click()
+      firstPage.once('dialog', (dialog) => dialog.accept())
+      await currentGame.getByRole('button', { name: 'Cancel room' }).click()
+      await expect(currentGame).not.toBeVisible()
+
+      await firstPage.getByRole('button', { name: 'Find ranked match' }).click()
+      await expect(firstPage.getByText('Searching for an opponent…')).toBeVisible()
+      await firstPage.getByRole('button', { name: 'Cancel search' }).click()
+
+      await firstPage.getByRole('button', { name: 'Create private match' }).click()
+      const reusableRoomCodeInput = firstPage.getByLabel('Room code')
+      await expect(reusableRoomCodeInput).toHaveValue(/^[A-Z2-9]{6}$/)
+      const reusableRoomCode = await reusableRoomCodeInput.inputValue()
+      await secondPage.goto('/')
+      await secondPage.getByLabel('Room code').fill(reusableRoomCode)
+      await secondPage.getByRole('button', { name: 'Join match' }).click()
+      await secondPage.getByRole('button', { name: 'Back to dashboard' }).click()
+      secondPage.once('dialog', (dialog) => dialog.accept())
+      await secondPage.getByRole('button', { name: 'Leave lobby' }).click()
+      await expect(secondPage.locator('.current-games')).not.toBeVisible()
+      await expect(firstPage.getByText(/waiting for a second player/i)).toBeVisible()
+
+      await outsiderPage.goto('/')
+      await outsiderPage.getByLabel('Room code').fill(reusableRoomCode)
+      await outsiderPage.getByRole('button', { name: 'Join match' }).click()
+      await expect(outsiderPage.getByText('Side 2')).toBeVisible()
+      await firstPage.getByRole('button', { name: 'Back to dashboard' }).click()
+      firstPage.once('dialog', (dialog) => dialog.accept())
+      await firstPage.getByRole('button', { name: 'Cancel room' }).click()
+      await expect(firstPage.locator('.current-games')).not.toBeVisible()
+    } finally {
+      await first.close()
+      await second.close()
+      await outsider.close()
+    }
+  })
+
+  test('E2E 3 — casual room supports recovery, formation, chat, live move, resignation, disclosure and history', async ({ browser }) => {
     const first = await browser.newContext({ storageState: firstState })
     const second = await browser.newContext({ storageState: secondState })
     try {
@@ -51,20 +113,29 @@ test.describe.serial('complete local platform', () => {
       expect(roomCode).toMatch(/^[A-Z2-9]{6}$/)
 
       await prepareBothArmies(firstPage, secondPage)
+      await firstPage.goto('/')
+      const currentGame = firstPage.locator('.current-games')
+      await expect(currentGame.getByRole('button', { name: 'Resume game' })).toBeVisible()
+      await expect(currentGame.getByRole('button', { name: 'Cancel room' })).toHaveCount(0)
+      await expect(firstPage.getByText('You already have a game in progress.')).toBeVisible()
+      await currentGame.getByRole('button', { name: 'Resume game' }).click()
+      await expect(firstPage.getByRole('heading', { name: /Your turn|Opponent’s turn/ })).toBeVisible()
       await exchangeChat(firstPage, secondPage, `Ready ${runId}`)
       await makeOneLegalMove(firstPage, secondPage)
       await resignAndExpectDisclosure(secondPage, firstPage)
 
       await firstPage.goto('/history')
       await expect(firstPage.getByRole('heading', { name: 'Match history' })).toBeVisible()
-      await expect(firstPage.getByText(/CASUAL against/i)).toBeVisible()
+      await expect(firstPage.getByText(
+        `CASUAL against ${accounts.second.displayName}`,
+      )).toBeVisible()
     } finally {
       await first.close()
       await second.close()
     }
   })
 
-  test('E2E 3 — ranked pairing updates rating once and appears on profile and leaderboard', async ({ browser }) => {
+  test('E2E 4 — ranked pairing updates rating once and appears on profile and leaderboard', async ({ browser }) => {
     const first = await browser.newContext({ storageState: firstState })
     const second = await browser.newContext({ storageState: secondState })
     try {
@@ -94,10 +165,10 @@ test.describe.serial('complete local platform', () => {
     }
   })
 
-  test('E2E 4 — outsider access fails, active ranks stay secret and hostile chat stays text', async ({ browser }) => {
+  test('E2E 5 — outsider access fails, active ranks stay secret and hostile chat stays text', async ({ browser }) => {
     const first = await browser.newContext({ storageState: firstState })
     const second = await browser.newContext({ storageState: secondState })
-    const outsider = await browser.newContext()
+    const outsider = await browser.newContext({ storageState: outsiderState })
     try {
       const firstPage = await first.newPage()
       const secondPage = await second.newPage()
@@ -106,7 +177,6 @@ test.describe.serial('complete local platform', () => {
       await prepareBothArmies(firstPage, secondPage)
       const matchId = await activeMatchId(firstPage)
 
-      await registerVerifyAndLogin(outsider, accounts.outsider)
       const forbidden = await outsider.request.get(`/api/matches/${matchId}`)
       expect(forbidden.status()).toBe(403)
       expect((await forbidden.json()).code).toBe('PLAYER_NOT_IN_MATCH')
@@ -223,7 +293,9 @@ async function prepareBothArmies(firstPage: Page, secondPage: Page) {
 }
 
 async function deployFormation(page: Page) {
-  const firstRow = await page.getByText('Side 1', { exact: true }).isVisible() ? 0 : 5
+  const sideLabel = page.locator('.match-header').getByText(/^Side [12]$/)
+  await expect(sideLabel).toBeVisible()
+  const firstRow = await sideLabel.textContent() === 'Side 1' ? 0 : 5
   const ranks = [
     'Five-Star General', 'Four-Star General', 'Three-Star General', 'Two-Star General',
     'One-Star General', 'Colonel', 'Lieutenant Colonel', 'Major', 'Captain',
@@ -254,15 +326,20 @@ async function exchangeChat(sender: Page, recipient: Page, text: string) {
 async function makeOneLegalMove(firstPage: Page, secondPage: Page) {
   const firstMoves = await firstPage.getByRole('heading', { name: 'Your turn' }).isVisible()
   const mover = firstMoves ? firstPage : secondPage
+  const observer = firstMoves ? secondPage : firstPage
   const sideOneMoves = await mover.getByText('Side 1', { exact: true }).isVisible()
-  const sourceRow = sideOneMoves ? 2 : 7
-  const destinationRow = sideOneMoves ? 3 : 6
-  await mover.getByRole('gridcell', { name: new RegExp(`Row ${sourceRow}, column 0, Spy`) }).click()
+  const sourceRow = sideOneMoves ? 2 : 5
+  const destinationRow = sideOneMoves ? 3 : 4
+  const sourceRank = sideOneMoves ? 'Spy' : 'Five-Star General'
+  await mover.getByRole('gridcell', {
+    name: new RegExp(`Row ${sourceRow}, column 0, ${sourceRank}`),
+  }).click()
   await mover.getByRole('gridcell', {
     name: `Row ${destinationRow}, column 0, candidate destination`,
     exact: true,
   }).click()
-  await expect(mover.getByText(/Version 7|Version 8|Version 9/)).toBeVisible()
+  await expect(mover.getByRole('heading', { name: 'Opponent’s turn' })).toBeVisible()
+  await expect(observer.getByRole('heading', { name: 'Your turn' })).toBeVisible()
 }
 
 async function resignAndExpectDisclosure(resigner: Page, observer: Page) {

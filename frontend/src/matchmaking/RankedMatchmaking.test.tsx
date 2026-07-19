@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { matchView } from '../test-fixtures'
+import { currentMatchSummary, matchView } from '../test-fixtures'
 import { RankedMatchmaking } from './RankedMatchmaking'
 import type { MatchmakingFound, QueueStatus } from './types'
 
@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   cancel: vi.fn(),
   connect: vi.fn(),
   getPlayerView: vi.fn(),
+  cancelOpenMatch: vi.fn(),
 }))
 
 vi.mock('./client', () => ({
@@ -26,6 +27,7 @@ vi.mock('./socket', () => ({
 vi.mock('../api/client', async (importOriginal) => ({
   ...await importOriginal<typeof import('../api/client')>(),
   getPlayerView: mocks.getPlayerView,
+  cancelMatch: mocks.cancelOpenMatch,
 }))
 
 function renderQueue(onEnteredMatch = vi.fn()) {
@@ -36,6 +38,21 @@ function renderQueue(onEnteredMatch = vi.fn()) {
     </QueryClientProvider>,
   )
   return onEnteredMatch
+}
+
+function renderBlockedQueue() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const onContinue = vi.fn()
+  render(
+    <QueryClientProvider client={client}>
+      <RankedMatchmaking
+        onEnteredMatch={vi.fn()}
+        blockingMatches={[currentMatchSummary()]}
+        onContinueMatch={onContinue}
+      />
+    </QueryClientProvider>,
+  )
+  return onContinue
 }
 
 describe('ranked matchmaking', () => {
@@ -105,6 +122,33 @@ describe('ranked matchmaking', () => {
       roomCode: null,
       view,
     })
+  })
+
+  it('turns an open-match block into functional Continue and confirmed cancellation actions', async () => {
+    mocks.getStatus.mockResolvedValue(idle())
+    mocks.cancelOpenMatch.mockResolvedValue({
+      commandId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      version: 2,
+      matchId: currentMatchSummary().matchId,
+      action: 'ROOM_CANCELLED',
+    })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+    const onContinue = renderBlockedQueue()
+
+    expect(await screen.findByText('You already have a game in progress.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Continue game' }))
+    expect(onContinue).toHaveBeenCalledWith(currentMatchSummary())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel unused room' }))
+    expect(mocks.cancelOpenMatch).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel unused room' }))
+
+    await waitFor(() => expect(mocks.cancelOpenMatch).toHaveBeenCalledWith(
+      currentMatchSummary().matchId,
+      currentMatchSummary().version,
+    ))
+    expect(confirm).toHaveBeenCalledTimes(2)
+    expect(await screen.findByRole('button', { name: 'Find ranked match' })).toBeEnabled()
   })
 })
 

@@ -27,7 +27,7 @@ export function MatchHeader({ view, onLeave }: MatchHeaderProps) {
       </div>
       <div className="match-header__actions">
         <button type="button" className="button button--ghost" onClick={onLeave}>
-          Leave local session
+          Back to dashboard
         </button>
       </div>
     </header>

@@ -1,5 +1,10 @@
 export class HttpApiError extends Error {
-  constructor(public readonly code: string, message: string, public readonly status: number) {
+  constructor(
+    public readonly code: string,
+    message: string,
+    public readonly status: number,
+    public readonly context: unknown = null,
+  ) {
     super(message)
     this.name = 'HttpApiError'
   }
@@ -42,11 +47,16 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   })
   if (response.status === 401) window.dispatchEvent(new Event('gotg:session-expired'))
   if (!response.ok) {
-    const body = await response.json().catch(() => null) as { code?: string; message?: string } | null
+    const body = await response.json().catch(() => null) as {
+      code?: string
+      message?: string
+      context?: unknown
+    } | null
     throw new HttpApiError(
       body?.code ?? 'REQUEST_FAILED',
       body?.message ?? 'The request could not be completed.',
       response.status,
+      body?.context,
     )
   }
   if (response.status === 204) return undefined as T

@@ -52,7 +52,10 @@ public final class MatchSnapshotCodec {
                 Map.copyOf(match.cumulativeDisconnectedMillis),
                 match.formationDeadline,
                 match.turnStartedAt,
-                match.turnDeadline);
+                match.turnDeadline,
+                match.createdAt,
+                match.updatedAt,
+                match.participantCycleStartedAt);
         return write(snapshot);
     }
 
@@ -82,7 +85,8 @@ public final class MatchSnapshotCodec {
                     new PrivateMatch.StoredCommand(
                             new PrivateMatch.CommandFingerprint(
                                     command.operation(), command.components()),
-                            command.result())));
+                            command.result(),
+                            command.lifecycleResult())));
             match.repetitions.putAll(snapshot.repetitions());
             match.publicPieceIds.putAll(snapshot.publicPieceIds());
             match.state = restoreState(snapshot.state());
@@ -102,6 +106,13 @@ public final class MatchSnapshotCodec {
             match.formationDeadline = snapshot.formationDeadline();
             match.turnStartedAt = snapshot.turnStartedAt();
             match.turnDeadline = snapshot.turnDeadline();
+            match.participantCycleStartedAt = snapshot.participantCycleStartedAt();
+            if (snapshot.createdAt() != null) {
+                match.createdAt = snapshot.createdAt();
+            }
+            if (snapshot.updatedAt() != null) {
+                match.updatedAt = snapshot.updatedAt();
+            }
             return match;
         } catch (JacksonException exception) {
             throw new IllegalStateException("Persisted match snapshot is invalid", exception);
@@ -113,6 +124,10 @@ public final class MatchSnapshotCodec {
     }
 
     public String encodeResult(MatchCommandResult result) {
+        return write(result);
+    }
+
+    public String encodeLifecycleResult(MatchLifecycleResult result) {
         return write(result);
     }
 
@@ -139,7 +154,8 @@ public final class MatchSnapshotCodec {
                 commandId,
                 command.fingerprint().operation(),
                 command.fingerprint().components(),
-                command.result())));
+                command.result(),
+                command.lifecycleResult())));
         return result;
     }
 
@@ -206,7 +222,10 @@ public final class MatchSnapshotCodec {
             Map<PlayerSide, Long> cumulativeDisconnectedMillis,
             Instant formationDeadline,
             Instant turnStartedAt,
-            Instant turnDeadline) { }
+            Instant turnDeadline,
+            Instant createdAt,
+            Instant updatedAt,
+            Instant participantCycleStartedAt) { }
 
     public record PieceData(UUID id, PlayerSide owner, Rank rank, Position position) { }
 
@@ -214,7 +233,8 @@ public final class MatchSnapshotCodec {
             UUID commandId,
             String operation,
             List<String> components,
-            MatchCommandResult result) { }
+            MatchCommandResult result,
+            MatchLifecycleResult lifecycleResult) { }
 
     public record StateData(
             MatchPhase phase,

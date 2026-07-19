@@ -5,8 +5,16 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
-import { getChatHistory, getPlayerView } from './api/client'
-import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { getChatHistory, getCurrentMatches, getPlayerView } from './api/client'
+import {
+  BrowserRouter,
+  Link,
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
 import {
   ForgotPasswordScreen,
   LoginScreen,
@@ -16,11 +24,20 @@ import {
   VerifyEmailScreen,
 } from './auth/AuthScreens'
 import { getCurrentAccount, logout, type CurrentAccount } from './auth/client'
-import type { ChatError, ChatMessage, CommandResponse } from './api/types'
+import type {
+  ChatError,
+  ChatMessage,
+  CommandResponse,
+  CurrentMatchSummary,
+} from './api/types'
 import { ApiErrorNotice } from './components/ApiErrorNotice'
 import { FormationScreen } from './features/formation/FormationScreen'
 import { MatchChatPanel } from './features/chat/MatchChatPanel'
-import { HomeScreen } from './features/home/HomeScreen'
+import {
+  activityLabel,
+  currentMatchesQueryKey,
+  HomeScreen,
+} from './features/home/HomeScreen'
 import { LandingScreen } from './features/home/LandingScreen'
 import { ActiveMatchScreen } from './features/match/ActiveMatchScreen'
 import { MatchHeader } from './features/match/MatchHeader'
@@ -64,6 +81,11 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
       return connectionState === 'SYNCHRONIZED' ? false : 15_000
     },
   })
+
+  useEffect(() => {
+    if (!query.data) return
+    saveSession({ matchId: query.data.matchId, roomCode: query.data.roomCode })
+  }, [query.data])
 
   useEffect(() => {
     let active = true
@@ -162,7 +184,7 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
       <main className="app-shell">
         <ApiErrorNotice error={query.error} />
         <button type="button" className="button button--ghost" onClick={onLeave}>
-          Leave local session
+          Back to dashboard
         </button>
       </main>
     )
@@ -216,7 +238,7 @@ function connectionLabel(state: MatchConnectionState): string {
 
 function MatchApplication() {
   const queryClient = useQueryClient()
-  const [session, setSession] = useState<MatchSession | null>(loadSession)
+  const navigate = useNavigate()
 
   const enterMatch = (response: CommandResponse) => {
     const nextSession = {
@@ -225,23 +247,41 @@ function MatchApplication() {
     }
     saveSession(nextSession)
     queryClient.setQueryData(matchQueryKey(nextSession), response.view)
-    setSession(nextSession)
+    void queryClient.invalidateQueries({ queryKey: currentMatchesQueryKey })
+    navigate(`/matches/${response.matchId}`)
   }
 
-  const leave = () => {
+  const continueMatch = (activity: CurrentMatchSummary) => {
+    saveSession({ matchId: activity.matchId, roomCode: activity.roomCode })
+    navigate(activity.resumeRoute)
+  }
+
+  return <HomeScreen onEnteredMatch={enterMatch} onContinueMatch={continueMatch} />
+}
+
+function AuthoritativeMatchRoute() {
+  const { matchId } = useParams()
+  const navigate = useNavigate()
+  if (!matchId) return <Navigate to="/" replace />
+  const stored = loadSession()
+  const session: MatchSession = {
+    matchId,
+    roomCode: stored?.matchId === matchId ? stored.roomCode : null,
+  }
+  return <MatchRoute session={session} onLeave={() => {
     clearSession()
-    queryClient.clear()
-    setSession(null)
-  }
-
-  return session
-    ? <MatchRoute session={session} onLeave={leave} />
-    : <HomeScreen onEnteredMatch={enterMatch} />
+    navigate('/')
+  }} />
 }
 
 function AccountNavigation({ account }: { account: CurrentAccount }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const current = useQuery({
+    queryKey: currentMatchesQueryKey,
+    queryFn: getCurrentMatches,
+  })
+  const activity = current.data?.activities?.[0]
   return (
     <div className="account-bar">
       <nav aria-label="Primary navigation">
@@ -250,6 +290,11 @@ function AccountNavigation({ account }: { account: CurrentAccount }) {
         <Link to="/leaderboard">Leaderboard</Link>
         <Link to="/profile">Profile</Link>
         <Link to="/settings">Settings</Link>
+        {activity && (
+          <Link className="current-game-indicator" to={activity.resumeRoute}>
+            {activityLabel(activity)}
+          </Link>
+        )}
       </nav>
       <span>{account.displayName}</span>
       {!account.emailVerified && <Link to="/verification-status">Verify email</Link>}
@@ -302,6 +347,7 @@ function ApplicationRoutes() {
         <Route path="/players/:username" element={<AuthenticatedPage><PublicProfileScreen /></AuthenticatedPage>} />
         <Route path="/history" element={<AuthenticatedPage><MatchHistoryListScreen /></AuthenticatedPage>} />
         <Route path="/matches/:matchId/history" element={<AuthenticatedPage><MatchHistoryScreen /></AuthenticatedPage>} />
+        <Route path="/matches/:matchId" element={<AuthenticatedPage><AuthoritativeMatchRoute /></AuthenticatedPage>} />
         <Route path="/leaderboard" element={<AuthenticatedPage><LeaderboardScreen /></AuthenticatedPage>} />
         <Route path="/" element={<AuthenticatedPage><MatchApplication /></AuthenticatedPage>} />
         <Route path="*" element={<Navigate to="/welcome" replace />} />

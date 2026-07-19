@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from '../../App'
 import { saveSession } from '../../session/session'
-import { commandResponse, jsonResponse, matchView } from '../../test-fixtures'
+import { commandResponse, currentMatchSummary, jsonResponse, matchView } from '../../test-fixtures'
 import type { PlayerMatchView } from '../../api/types'
 import { ActiveMatchScreen } from './ActiveMatchScreen'
 import { MatchBoard } from './MatchBoard'
@@ -107,17 +107,28 @@ describe('active and terminal match screens', () => {
     const initial = activeView()
     const synchronized = activeView({ version: 7, currentPlayer: 'PLAYER_TWO' })
     saveSession(session)
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonResponse({
+    window.history.replaceState({}, '', `/matches/${session.matchId}`)
+    let playerViewRequests = 0
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/auth/me') return jsonResponse({
         id: 'account-id', username: 'marshal', displayName: 'Marshal', status: 'ACTIVE', emailVerified: true,
-      }))
-      .mockResolvedValueOnce(jsonResponse(initial))
-      .mockResolvedValueOnce(jsonResponse({
+      })
+      if (url === '/api/matches/current') return jsonResponse({
+        activities: [currentMatchSummary({ phase: 'ACTIVE', version: 6 })],
+        multipleOpenMatches: false,
+      })
+      if (url.endsWith('/moves') && init?.method === 'POST') return jsonResponse({
         code: 'STALE_VERSION',
         message: 'Expected version 6 but current is 7',
         timestamp: 'now',
-      }, 409))
-      .mockResolvedValueOnce(jsonResponse(synchronized))
+      }, 409)
+      if (url === `/api/matches/${session.matchId}`) {
+        playerViewRequests++
+        return jsonResponse(playerViewRequests === 1 ? initial : synchronized)
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
@@ -127,7 +138,7 @@ describe('active and terminal match screens', () => {
 
     await waitFor(() => expect(screen.getAllByText(/synchronizing the latest state/i).length)
       .toBeGreaterThan(0))
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
+    await waitFor(() => expect(playerViewRequests).toBe(2))
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
     expect(await screen.findByText('Opponent’s turn')).toBeInTheDocument()
   })

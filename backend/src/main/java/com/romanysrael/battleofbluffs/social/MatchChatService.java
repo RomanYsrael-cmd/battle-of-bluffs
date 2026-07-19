@@ -91,6 +91,8 @@ public class MatchChatService {
     @Transactional(readOnly = true)
     public List<ChatMessageView> history(UUID matchId, UUID requesterId, Long afterSequence) {
         participants(matchId, requesterId);
+        Instant participantCycleStartedAt = matches.participantCycleStartedAt(
+                matchId, requesterId.toString());
         List<MatchChatMessageEntity> history;
         if (afterSequence == null) {
             history = new ArrayList<>(messages.findTop100ByMatchIdOrderBySequenceNumberDesc(matchId));
@@ -101,7 +103,11 @@ public class MatchChatService {
                             matchId,
                             Math.max(afterSequence, 0));
         }
-        return history.stream().map(message -> view(message, requesterId)).toList();
+        return history.stream()
+                .filter(message -> participantCycleStartedAt == null
+                        || !message.getCreatedAt().isBefore(participantCycleStartedAt))
+                .map(message -> view(message, requesterId))
+                .toList();
     }
 
     private List<UUID> participants(UUID matchId, UUID requesterId) {

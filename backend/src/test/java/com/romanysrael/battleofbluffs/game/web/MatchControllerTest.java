@@ -112,6 +112,86 @@ class MatchControllerTest {
                                 "pieces", formationPieces(0)))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("PLAYER_NOT_IN_MATCH"));
+
+        command("/api/matches/{id}/cancel", matchId, HOST, 2);
+    }
+
+    @Test
+    void currentMatchDiscoveryAndLifecycleCommandsRecoverPersistedLobbySafely() throws Exception {
+        AccountPrincipal host = principal(
+                "40000000-0000-4000-8000-000000000004", "recovering-host");
+        AccountPrincipal guest = principal(
+                "50000000-0000-4000-8000-000000000005", "departing-guest");
+        AccountPrincipal replacement = principal(
+                "60000000-0000-4000-8000-000000000006", "replacement-guest");
+        when(userDetailsService.loadUserByUsername(host.username())).thenReturn(host);
+        when(userDetailsService.loadUserByUsername(guest.username())).thenReturn(guest);
+        when(userDetailsService.loadUserByUsername(replacement.username())).thenReturn(replacement);
+
+        JsonNode created = body(mvc.perform(post("/api/matches")
+                        .with(user(host)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+        String matchId = created.get("matchId").stringValue();
+        String roomCode = created.get("roomCode").stringValue();
+
+        mvc.perform(get("/api/matches/current").with(user(host)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.multipleOpenMatches").value(false))
+                .andExpect(jsonPath("$.activities[0].matchId").value(matchId))
+                .andExpect(jsonPath("$.activities[0].version").value(1))
+                .andExpect(jsonPath("$.activities[0].roomCode").value(roomCode))
+                .andExpect(jsonPath("$.activities[0].side").value("PLAYER_ONE"))
+                .andExpect(jsonPath("$.activities[0].opponentPresent").value(false))
+                .andExpect(jsonPath("$.activities[0].canResume").value(true))
+                .andExpect(jsonPath("$.activities[0].canCancel").value(true))
+                .andExpect(jsonPath("$.activities[0].ownPieces").doesNotExist())
+                .andExpect(jsonPath("$.activities[0].opponentPieces").doesNotExist());
+
+        JsonNode joined = body(mvc.perform(post("/api/matches/join")
+                        .with(user(guest)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "commandId", UUID.randomUUID(),
+                                "roomCode", roomCode,
+                                "expectedVersion", 1))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        mvc.perform(post("/api/matches/{id}/leave", matchId)
+                        .with(user(guest)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "commandId", UUID.randomUUID(),
+                                "expectedVersion", joined.get("version").asLong()))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.action").value("LOBBY_LEFT"));
+        mvc.perform(get("/api/matches/current").with(user(guest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activities.length()").value(0));
+
+        mvc.perform(post("/api/matches/join")
+                        .with(user(replacement)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "commandId", UUID.randomUUID(),
+                                "roomCode", roomCode))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.version").value(4))
+                .andExpect(jsonPath("$.view.requestingSide").value("PLAYER_TWO"));
+
+        mvc.perform(post("/api/matches/{id}/cancel", matchId)
+                        .with(user(host)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "commandId", UUID.randomUUID(),
+                                "expectedVersion", 4))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.action").value("ROOM_CANCELLED"));
+        mvc.perform(get("/api/matches/current").with(user(host)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activities.length()").value(0));
+        mvc.perform(get("/api/matches/current").with(user(replacement)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activities.length()").value(0));
     }
 
     @Test

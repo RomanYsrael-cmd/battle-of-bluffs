@@ -13,6 +13,7 @@ import com.romanysrael.battleofbluffs.game.application.PlayerMatchViewMapper;
 import com.romanysrael.battleofbluffs.game.application.MatchApplicationException;
 import com.romanysrael.battleofbluffs.game.application.Commands.CreateMatchCommand;
 import com.romanysrael.battleofbluffs.game.application.Commands.JoinMatchCommand;
+import com.romanysrael.battleofbluffs.game.application.Commands.LeaveMatchCommand;
 import com.romanysrael.battleofbluffs.user.AccountStatus;
 import com.romanysrael.battleofbluffs.user.UserAccountEntity;
 import com.romanysrael.battleofbluffs.user.UserAccountRepository;
@@ -158,6 +159,50 @@ class MatchChatServiceTest {
                 .isInstanceOf(MatchApplicationException.class)
                 .hasMessageContaining("Player does not belong to match");
         verify(messages, never()).findTop100ByMatchIdOrderBySequenceNumberDesc(any());
+    }
+
+    @Test
+    void replacementGuestCannotReadChatFromThePreviousParticipantCycle() {
+        MatchApplicationService realMatches = new MatchApplicationService(
+                new InMemoryMatchRepository(), new PlayerMatchViewMapper());
+        UUID hostId = UUID.randomUUID();
+        UUID formerGuestId = UUID.randomUUID();
+        UUID replacementId = UUID.randomUUID();
+        var created = realMatches.createMatch(new CreateMatchCommand(hostId.toString()));
+        var joined = realMatches.joinMatch(new JoinMatchCommand(
+                UUID.randomUUID(), created.view().roomCode(), formerGuestId.toString(), 1));
+        var left = realMatches.leaveMatch(new LeaveMatchCommand(
+                UUID.randomUUID(), created.view().matchId(), formerGuestId.toString(), joined.version()));
+        realMatches.joinMatch(new JoinMatchCommand(
+                UUID.randomUUID(), created.view().roomCode(), replacementId.toString(), left.version()));
+        Instant replacementCycle = realMatches.participantCycleStartedAt(
+                created.view().matchId(), replacementId.toString());
+
+        MatchChatMessageEntity priorCycleMessage = new MatchChatMessageEntity(
+                UUID.randomUUID(), created.view().matchId(), hostId, 1, "old private chat",
+                replacementCycle.minusNanos(1));
+        MatchChatMessageEntity currentCycleMessage = new MatchChatMessageEntity(
+                UUID.randomUUID(), created.view().matchId(), hostId, 2, "current chat",
+                replacementCycle.plusNanos(1));
+        when(messages.findTop100ByMatchIdOrderBySequenceNumberDesc(created.view().matchId()))
+                .thenReturn(List.of(currentCycleMessage, priorCycleMessage));
+        when(accounts.findById(hostId)).thenReturn(Optional.of(account(hostId, "host", "Host")));
+        MatchChatService securedChat = new MatchChatService(
+                realMatches,
+                messages,
+                blocks,
+                accounts,
+                messaging,
+                Clock.fixed(replacementCycle.plusSeconds(1), ZoneOffset.UTC),
+                5,
+                java.time.Duration.ofSeconds(10));
+
+        List<MatchChatService.ChatMessageView> history = securedChat.history(
+                created.view().matchId(), replacementId, null);
+
+        assertThat(history).singleElement()
+                .extracting(MatchChatService.ChatMessageView::body)
+                .isEqualTo("current chat");
     }
 
     private static UserAccountEntity account(UUID id, String username, String displayName) {

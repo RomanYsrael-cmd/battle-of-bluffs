@@ -35,6 +35,7 @@ public final class MatchApplicationService {
     private final BattleResolver battleResolver = new BattleResolver();
     private final VictoryEvaluator victoryEvaluator = new VictoryEvaluator();
     private final SecureRandom random = new SecureRandom();
+    private final Object playerActivityLock = new Object();
     private Clock clock = Clock.systemUTC();
     private MatchTimingSettings timing = MatchTimingSettings.defaults();
 
@@ -69,80 +70,107 @@ public final class MatchApplicationService {
 
     public MatchCommandResult createMatch(CreateMatchCommand command) {
         String playerId = blank(command.playerId()) ? opaquePlayerId() : command.playerId();
-        MatchMode mode = command.mode() == null ? MatchMode.CASUAL : command.mode();
-        TimerMode timerMode = command.timerMode() == null
-                ? TimerMode.CASUAL_UNTIMED
-                : command.timerMode();
-        if (mode == MatchMode.RANKED) {
-            timerMode = TimerMode.STANDARD_15_PLUS_5;
+        synchronized (playerActivityLock) {
+            requireNoOpenMatch(playerId);
+            MatchMode mode = command.mode() == null ? MatchMode.CASUAL : command.mode();
+            TimerMode timerMode = command.timerMode() == null
+                    ? TimerMode.CASUAL_UNTIMED
+                    : command.timerMode();
+            if (mode == MatchMode.RANKED) {
+                timerMode = TimerMode.STANDARD_15_PLUS_5;
+            }
+            UUID id = UUID.randomUUID();
+            String code;
+            do {
+                code = roomCode();
+            } while (repository.findByRoomCode(code).isPresent());
+            PrivateMatch match = new PrivateMatch(id, code, playerId, mode, timerMode);
+            Instant now = clock.instant();
+            match.createdAt = now;
+            match.updatedAt = now;
+            addEvent(match, PublicMatchEvent.Type.MATCH_CREATED, PlayerSide.PLAYER_ONE,
+                    null, null, null, null, null, List.of(), null);
+            repository.save(match);
+            return new MatchCommandResult(null, match.version, mapper.map(match, playerId));
         }
-        UUID id = UUID.randomUUID();
-        String code;
-        do {
-            code = roomCode();
-        } while (repository.findByRoomCode(code).isPresent());
-        PrivateMatch match = new PrivateMatch(id, code, playerId, mode, timerMode);
-        addEvent(match, PublicMatchEvent.Type.MATCH_CREATED, PlayerSide.PLAYER_ONE,
-                null, null, null, null, null, List.of(), null);
-        repository.save(match);
-        return new MatchCommandResult(null, match.version, mapper.map(match, playerId));
     }
 
     public RankedMatch createRankedMatch(String playerOneId, String playerTwoId) {
         if (blank(playerOneId) || blank(playerTwoId) || playerOneId.equals(playerTwoId)) {
             throw new IllegalArgumentException("Ranked matchmaking requires two distinct players");
         }
-        Instant createdAt = clock.instant();
-        PrivateMatch match = new PrivateMatch(
-                UUID.randomUUID(),
-                null,
-                playerOneId,
-                MatchMode.RANKED,
-                TimerMode.STANDARD_15_PLUS_5);
-        match.players.put(PlayerSide.PLAYER_TWO, playerTwoId);
-        temporal.openFormation(match, createdAt);
-        addEvent(match, PublicMatchEvent.Type.MATCH_CREATED, PlayerSide.PLAYER_ONE,
-                null, null, null, null, null, List.of(), null);
-        addEvent(match, PublicMatchEvent.Type.PLAYER_JOINED, PlayerSide.PLAYER_TWO,
-                null, null, null, null, null, List.of(), null);
-        repository.save(match);
-        return new RankedMatch(
-                match.id,
-                mapper.map(match, playerOneId),
-                mapper.map(match, playerTwoId));
+        synchronized (playerActivityLock) {
+            requireNoOpenMatch(playerOneId);
+            requireNoOpenMatch(playerTwoId);
+            Instant createdAt = clock.instant();
+            PrivateMatch match = new PrivateMatch(
+                    UUID.randomUUID(),
+                    null,
+                    playerOneId,
+                    MatchMode.RANKED,
+                    TimerMode.STANDARD_15_PLUS_5);
+            match.createdAt = createdAt;
+            match.updatedAt = createdAt;
+            match.players.put(PlayerSide.PLAYER_TWO, playerTwoId);
+            match.participantCycleStartedAt = createdAt;
+            temporal.openFormation(match, createdAt);
+            addEvent(match, PublicMatchEvent.Type.MATCH_CREATED, PlayerSide.PLAYER_ONE,
+                    null, null, null, null, null, List.of(), null);
+            addEvent(match, PublicMatchEvent.Type.PLAYER_JOINED, PlayerSide.PLAYER_TWO,
+                    null, null, null, null, null, List.of(), null);
+            repository.save(match);
+            return new RankedMatch(
+                    match.id,
+                    mapper.map(match, playerOneId),
+                    mapper.map(match, playerTwoId));
+        }
     }
 
     public MatchCommandResult joinMatch(JoinMatchCommand command) {
         PrivateMatch match = byCode(command.roomCode());
-        synchronized (match) {
-            Instant receivedAt = clock.instant();
-            PrivateMatch.CommandFingerprint fingerprint = fingerprint("join",
-                    canonicalRoomCode(command.roomCode()), nullable(command.playerId()),
-                    Long.toString(command.expectedVersion()));
-            MatchCommandResult replay = replay(match, command.commandId(), fingerprint);
-            if (replay != null) {
-                return replay;
+        synchronized (playerActivityLock) {
+            synchronized (match) {
+                Instant receivedAt = clock.instant();
+                PrivateMatch.CommandFingerprint fingerprint = fingerprint(
+                        "join",
+                        canonicalRoomCode(command.roomCode()),
+                        nullable(command.playerId()),
+                        Long.toString(command.expectedVersion()));
+                MatchCommandResult replay = replay(match, command.commandId(), fingerprint);
+                if (replay != null) {
+                    return replay;
+                }
+                temporal.ensureNotExpired(match, receivedAt);
+                if (command.expectedVersion() > 0) {
+                    version(match, command.expectedVersion());
+                }
+                String playerId = blank(command.playerId())
+                        ? opaquePlayerId()
+                        : command.playerId();
+                if (match.sideOf(playerId) != null) {
+                    throw error(
+                            MatchErrorCode.INVALID_ROOM_STATE,
+                            "Player already occupies a seat");
+                }
+                if (match.players.size() >= 2) {
+                    throw error(MatchErrorCode.MATCH_FULL, "Match already has two players");
+                }
+                requireNoOpenMatch(playerId);
+                if (!joinPolicy.mayJoin(
+                        match.players.get(PlayerSide.PLAYER_ONE), playerId)) {
+                    throw error(
+                            MatchErrorCode.BLOCKED_RELATION,
+                            "A block relationship prevents joining this casual room");
+                }
+                match.players.put(PlayerSide.PLAYER_TWO, playerId);
+                match.participantCycleStartedAt = receivedAt;
+                temporal.openFormation(match, receivedAt);
+                match.version++;
+                addEvent(match, PublicMatchEvent.Type.PLAYER_JOINED, PlayerSide.PLAYER_TWO,
+                        null, null, null, null, null, List.of(), null);
+                return remember(match, command.commandId(), fingerprint, playerId,
+                        MatchUpdatePublisher.UpdateType.PLAYER_JOINED);
             }
-            temporal.ensureNotExpired(match, receivedAt);
-            version(match, command.expectedVersion());
-            String playerId = blank(command.playerId()) ? opaquePlayerId() : command.playerId();
-            if (match.sideOf(playerId) != null) {
-                throw error(MatchErrorCode.INVALID_ROOM_STATE, "Player already occupies a seat");
-            }
-            if (match.players.size() >= 2) {
-                throw error(MatchErrorCode.MATCH_FULL, "Match already has two players");
-            }
-            if (!joinPolicy.mayJoin(match.players.get(PlayerSide.PLAYER_ONE), playerId)) {
-                throw error(MatchErrorCode.BLOCKED_RELATION,
-                        "A block relationship prevents joining this casual room");
-            }
-            match.players.put(PlayerSide.PLAYER_TWO, playerId);
-            temporal.openFormation(match, receivedAt);
-            match.version++;
-            addEvent(match, PublicMatchEvent.Type.PLAYER_JOINED, PlayerSide.PLAYER_TWO,
-                    null, null, null, null, null, List.of(), null);
-            return remember(match, command.commandId(), fingerprint, playerId,
-                    MatchUpdatePublisher.UpdateType.PLAYER_JOINED);
         }
     }
 
@@ -314,6 +342,75 @@ public final class MatchApplicationService {
         }
     }
 
+    public MatchLifecycleResult cancelMatch(CancelMatchCommand command) {
+        PrivateMatch match = byId(command.matchId());
+        synchronized (match) {
+            PrivateMatch.CommandFingerprint fingerprint = fingerprint(
+                    "cancel", command.playerId(), Long.toString(command.expectedVersion()));
+            MatchLifecycleResult replay = replayLifecycle(
+                    match, command.commandId(), fingerprint);
+            if (replay != null) {
+                return replay;
+            }
+            temporal.ensureNotExpired(match, clock.instant());
+            version(match, command.expectedVersion());
+            PlayerSide side = member(match, command.playerId());
+            if (side != PlayerSide.PLAYER_ONE) {
+                throw error(MatchErrorCode.INVALID_ROOM_STATE,
+                        "Only the private-room host may cancel the room");
+            }
+            return cancelPrivateRoom(match, command.commandId(), fingerprint);
+        }
+    }
+
+    public MatchLifecycleResult leaveMatch(LeaveMatchCommand command) {
+        PrivateMatch match = byId(command.matchId());
+        synchronized (match) {
+            PrivateMatch.CommandFingerprint fingerprint = fingerprint(
+                    "leave", command.playerId(), Long.toString(command.expectedVersion()));
+            MatchLifecycleResult replay = replayLifecycle(
+                    match, command.commandId(), fingerprint);
+            if (replay != null) {
+                return replay;
+            }
+            temporal.ensureNotExpired(match, clock.instant());
+            version(match, command.expectedVersion());
+            PlayerSide side = member(match, command.playerId());
+            if (side == PlayerSide.PLAYER_ONE) {
+                return cancelPrivateRoom(match, command.commandId(), fingerprint);
+            }
+            requireCasualFormation(match);
+            if (!match.locked.isEmpty()) {
+                throw error(MatchErrorCode.INVALID_ROOM_STATE,
+                        "A locked formation cannot be removed; resume the match instead");
+            }
+
+            List<Piece> departingFormation = match.formations.remove(PlayerSide.PLAYER_TWO);
+            if (departingFormation != null) {
+                departingFormation.forEach(piece -> match.publicPieceIds.remove(piece.id()));
+            }
+            match.players.remove(PlayerSide.PLAYER_TWO);
+            match.locked.remove(PlayerSide.PLAYER_TWO);
+            match.connected.remove(PlayerSide.PLAYER_TWO);
+            match.disconnectedSince.remove(PlayerSide.PLAYER_TWO);
+            match.cumulativeDisconnectedMillis.remove(PlayerSide.PLAYER_TWO);
+            match.remainingMillis.remove(PlayerSide.PLAYER_TWO);
+            match.participantCycleStartedAt = null;
+            match.formationDeadline = null;
+            match.turnStartedAt = null;
+            match.turnDeadline = null;
+            match.version++;
+            addEvent(match, PublicMatchEvent.Type.PLAYER_LEFT, PlayerSide.PLAYER_TWO,
+                    null, null, null, null, null, List.of(), null);
+            return rememberLifecycle(
+                    match,
+                    command.commandId(),
+                    fingerprint,
+                    MatchLifecycleResult.Action.LOBBY_LEFT,
+                    MatchUpdatePublisher.UpdateType.PLAYER_LEFT);
+        }
+    }
+
     public PlayerMatchView getView(UUID matchId, String playerId) {
         PrivateMatch match = byId(matchId);
         synchronized (match) {
@@ -338,6 +435,14 @@ public final class MatchApplicationService {
         }
     }
 
+    public Instant participantCycleStartedAt(UUID matchId, String requestingPlayerId) {
+        PrivateMatch match = byId(matchId);
+        synchronized (match) {
+            member(match, requestingPlayerId);
+            return match.participantCycleStartedAt;
+        }
+    }
+
     public MatchSummary summary(UUID matchId) {
         PrivateMatch match = byId(matchId);
         synchronized (match) {
@@ -355,10 +460,25 @@ public final class MatchApplicationService {
                 .toList();
     }
 
+    public List<CurrentMatchSummary> currentMatches(String playerId) {
+        List<CurrentMatchSummary> current = new ArrayList<>();
+        for (PrivateMatch match : repository.findAll()) {
+            synchronized (match) {
+                temporal.evaluateDeadlines(match, clock.instant());
+                PlayerSide side = match.sideOf(playerId);
+                if (side != null && !terminal(match)) {
+                    current.add(currentSummary(match, side));
+                }
+            }
+        }
+        current.sort(Comparator.comparing(
+                CurrentMatchSummary::updatedAt,
+                Comparator.nullsLast(Comparator.reverseOrder())));
+        return List.copyOf(current);
+    }
+
     public boolean hasActiveMatch(String playerId) {
-        return summaries().stream().anyMatch(summary ->
-                summary.participants().containsValue(playerId)
-                        && summary.phase() != MatchPhase.TERMINAL);
+        return !currentMatches(playerId).isEmpty();
     }
 
     public Optional<MatchSummary> activeRankedMatch(String playerId) {
@@ -399,6 +519,26 @@ public final class MatchApplicationService {
             UUID matchId,
             PlayerMatchView playerOneView,
             PlayerMatchView playerTwoView) {
+    }
+
+    public record CurrentMatchSummary(
+            UUID matchId,
+            MatchMode mode,
+            MatchPhase phase,
+            long version,
+            String roomCode,
+            PlayerSide side,
+            boolean opponentPresent,
+            boolean ownFormationSubmitted,
+            boolean ownLocked,
+            boolean opponentLocked,
+            PlayerSide currentPlayer,
+            Instant createdAt,
+            Instant updatedAt,
+            boolean canResume,
+            boolean canCancel,
+            boolean canLeave,
+            String resumeRoute) {
     }
 
     private void applyMove(PrivateMatch match, Move move) {
@@ -657,7 +797,27 @@ public final class MatchApplicationService {
             String playerId, MatchUpdatePublisher.UpdateType updateType) {
         MatchCommandResult result = new MatchCommandResult(
                 commandId, match.version, mapper.map(match, playerId));
-        match.commands.put(commandId, new PrivateMatch.StoredCommand(fingerprint, result));
+        match.commands.put(commandId, PrivateMatch.StoredCommand.match(fingerprint, result));
+        match.updatedAt = clock.instant();
+        while (match.commands.size() > COMMAND_HISTORY_LIMIT) {
+            match.commands.remove(match.commands.keySet().iterator().next());
+        }
+        match.liveSequence++;
+        repository.save(match);
+        publishUpdate(match, updateType);
+        return result;
+    }
+
+    private MatchLifecycleResult rememberLifecycle(
+            PrivateMatch match,
+            UUID commandId,
+            PrivateMatch.CommandFingerprint fingerprint,
+            MatchLifecycleResult.Action action,
+            MatchUpdatePublisher.UpdateType updateType) {
+        MatchLifecycleResult result = new MatchLifecycleResult(
+                commandId, match.version, match.id, action);
+        match.commands.put(commandId, PrivateMatch.StoredCommand.lifecycle(fingerprint, result));
+        match.updatedAt = clock.instant();
         while (match.commands.size() > COMMAND_HISTORY_LIMIT) {
             match.commands.remove(match.commands.keySet().iterator().next());
         }
@@ -685,7 +845,7 @@ public final class MatchApplicationService {
         match.players.values().forEach(playerId ->
                 playerViews.put(playerId, mapper.map(match, playerId)));
         try {
-        updatePublisher.publish(new MatchUpdatePublisher.MatchUpdate(
+            updatePublisher.publish(new MatchUpdatePublisher.MatchUpdate(
                     match.id, match.liveSequence, updateType, playerViews));
         } catch (RuntimeException exception) {
             LOGGER.warn(
@@ -709,7 +869,33 @@ public final class MatchApplicationService {
             throw error(MatchErrorCode.COMMAND_CONFLICT,
                     "commandId was already used with a different payload");
         }
+        if (previous.result() == null) {
+            throw error(MatchErrorCode.COMMAND_CONFLICT,
+                    "commandId was already used for another result type");
+        }
         return previous.result();
+    }
+
+    private MatchLifecycleResult replayLifecycle(
+            PrivateMatch match,
+            UUID commandId,
+            PrivateMatch.CommandFingerprint fingerprint) {
+        if (commandId == null) {
+            throw new IllegalArgumentException("commandId is required");
+        }
+        PrivateMatch.StoredCommand previous = match.commands.get(commandId);
+        if (previous == null) {
+            return null;
+        }
+        if (!previous.fingerprint().equals(fingerprint)) {
+            throw error(MatchErrorCode.COMMAND_CONFLICT,
+                    "commandId was already used with a different payload");
+        }
+        if (previous.lifecycleResult() == null) {
+            throw error(MatchErrorCode.COMMAND_CONFLICT,
+                    "commandId was already used for another result type");
+        }
+        return previous.lifecycleResult();
     }
 
     private void version(PrivateMatch match, long expectedVersion) {
@@ -734,6 +920,79 @@ public final class MatchApplicationService {
                     : MatchErrorCode.INVALID_ROOM_STATE;
             throw error(code, "Formation phase has ended");
         }
+    }
+
+    private MatchLifecycleResult cancelPrivateRoom(
+            PrivateMatch match,
+            UUID commandId,
+            PrivateMatch.CommandFingerprint fingerprint) {
+        requireCasualFormation(match);
+        TerminalResult result = TerminalResult.draw(TerminalReason.ROOM_CANCELLED);
+        addEvent(match, PublicMatchEvent.Type.ROOM_CANCELLED, PlayerSide.PLAYER_ONE,
+                null, null, null, null, null, List.of(), result);
+        temporal.finish(match, Board.empty(), result, 0);
+        match.version++;
+        return rememberLifecycle(
+                match,
+                commandId,
+                fingerprint,
+                MatchLifecycleResult.Action.ROOM_CANCELLED,
+                MatchUpdatePublisher.UpdateType.ROOM_CANCELLED);
+    }
+
+    private void requireCasualFormation(PrivateMatch match) {
+        if (match.mode == MatchMode.RANKED) {
+            throw error(MatchErrorCode.INVALID_ROOM_STATE,
+                    "Ranked matches must be resumed and cannot use casual lobby actions");
+        }
+        if (match.state != null) {
+            MatchErrorCode code = match.state.isTerminal()
+                    ? MatchErrorCode.TERMINAL_MATCH
+                    : MatchErrorCode.INVALID_ROOM_STATE;
+            throw error(code, "Active matches must be resumed or resigned");
+        }
+    }
+
+    private CurrentMatchSummary currentSummary(PrivateMatch match, PlayerSide side) {
+        PlayerSide opponent = side.opponent();
+        boolean formationPhase = match.state == null;
+        boolean canCancel = formationPhase
+                && match.mode == MatchMode.CASUAL
+                && side == PlayerSide.PLAYER_ONE;
+        boolean canLeave = formationPhase
+                && match.mode == MatchMode.CASUAL
+                && side == PlayerSide.PLAYER_TWO
+                && match.locked.isEmpty();
+        return new CurrentMatchSummary(
+                match.id,
+                match.mode,
+                match.state == null ? MatchPhase.FORMATION : match.state.phase(),
+                match.version,
+                match.roomCode,
+                side,
+                match.players.containsKey(opponent),
+                match.formations.containsKey(side),
+                match.locked.contains(side),
+                match.locked.contains(opponent),
+                match.state == null ? null : match.state.currentPlayer().orElse(null),
+                match.createdAt,
+                match.updatedAt,
+                true,
+                canCancel,
+                canLeave,
+                "/matches/" + match.id);
+    }
+
+    private void requireNoOpenMatch(String playerId) {
+        List<CurrentMatchSummary> current = currentMatches(playerId);
+        if (!current.isEmpty()) {
+            throw error(MatchErrorCode.OPEN_MATCH_EXISTS,
+                    "Resume or close the existing match before entering another one");
+        }
+    }
+
+    private boolean terminal(PrivateMatch match) {
+        return match.state != null && match.state.isTerminal();
     }
 
     private PrivateMatch byId(UUID id) {

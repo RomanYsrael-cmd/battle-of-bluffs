@@ -46,7 +46,7 @@ Once both seats are occupied:
 - if one reconnects, an already-expired grace for the opponent is evaluated immediately;
 - the earliest play timeout, cumulative forfeit, disconnect forfeit, setup timeout or no-contest deadline becomes the immutable result.
 
-Connection state, disconnect start times and accumulated durations are persisted in the match snapshot. On backend restart, formerly connected sessions are changed to disconnected at startup, overdue deadlines are finalized idempotently, and reconnecting clients refetch a complete player-safe view after their STOMP subscription receipt.
+Connection state, disconnect start times and accumulated durations are persisted in the match snapshot. On backend restart, formerly connected sessions are changed to disconnected at startup, overdue deadlines are finalized idempotently, and reconnecting clients register their STOMP subscriptions before refetching a complete player-safe view.
 
 ## Versions and live sequence
 

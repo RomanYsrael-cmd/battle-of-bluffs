@@ -39,13 +39,19 @@ public class PostgresMatchRepository implements MatchRepository {
 
     @PostConstruct
     void restorePersistedMatches() {
-        aggregates.findAll().forEach(entity -> cache(codec.decode(entity.snapshotJson())));
+        aggregates.findAll().forEach(entity -> {
+            PrivateMatch match = codec.decode(entity.snapshotJson());
+            match.createdAt = entity.createdAt();
+            match.updatedAt = entity.updatedAt();
+            cache(match);
+        });
     }
 
     @Override
     @Transactional
     public void save(PrivateMatch match) {
         Instant now = Instant.now();
+        match.updatedAt = now;
         String snapshot = codec.encode(match);
         MatchPhase phase = match.state == null ? MatchPhase.FORMATION : match.state.phase();
         MatchAggregateEntity entity = aggregates.findById(match.id)
@@ -167,7 +173,9 @@ public class PostgresMatchRepository implements MatchRepository {
                     match.id,
                     entry.getKey(),
                     fingerprint,
-                    codec.encodeResult(command.result()),
+                    command.result() == null
+                            ? codec.encodeLifecycleResult(command.lifecycleResult())
+                            : codec.encodeResult(command.result()),
                     Timestamp.from(now));
         }
     }

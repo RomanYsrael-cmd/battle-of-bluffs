@@ -21,4 +21,8 @@ public final class Commands {
     public record MakeMoveCommand(UUID commandId, UUID matchId, String playerId, long expectedVersion,
                                   Position source, Position destination) { }
     public record ResignCommand(UUID commandId, UUID matchId, String playerId, long expectedVersion) { }
+    public record CancelMatchCommand(
+            UUID commandId, UUID matchId, String playerId, long expectedVersion) { }
+    public record LeaveMatchCommand(
+            UUID commandId, UUID matchId, String playerId, long expectedVersion) { }
 }

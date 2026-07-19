@@ -1,5 +1,6 @@
 import type {
   CommandResponse,
+  CurrentMatchSummary,
   OwnPieceView,
   PlayerMatchView,
   PlayerSide,
@@ -64,6 +65,29 @@ export const commandResponse = (view: PlayerMatchView): CommandResponse => ({
   matchId: view.matchId,
   roomCode: view.roomCode,
   view,
+})
+
+export const currentMatchSummary = (
+  overrides: Partial<CurrentMatchSummary> = {},
+): CurrentMatchSummary => ({
+  matchId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  mode: 'CASUAL',
+  phase: 'FORMATION',
+  version: 1,
+  roomCode: 'ABC234',
+  side: 'PLAYER_ONE',
+  opponentPresent: false,
+  ownFormationSubmitted: false,
+  ownLocked: false,
+  opponentLocked: false,
+  currentPlayer: null,
+  createdAt: '2026-07-19T09:00:00Z',
+  updatedAt: '2026-07-19T10:00:00Z',
+  canResume: true,
+  canCancel: true,
+  canLeave: false,
+  resumeRoute: '/matches/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  ...overrides,
 })
 
 export const jsonResponse = (body: unknown, status = 200): Response => new Response(

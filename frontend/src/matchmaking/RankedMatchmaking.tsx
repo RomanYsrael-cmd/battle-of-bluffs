@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getPlayerView } from '../api/client'
-import type { CommandResponse, PlayerMatchView } from '../api/types'
+import { cancelMatch as cancelOpenMatch, getPlayerView, MatchApiError } from '../api/client'
+import type { CommandResponse, CurrentMatchSummary, PlayerMatchView } from '../api/types'
 import { ApiErrorNotice } from '../components/ApiErrorNotice'
 import { cancelRankedQueue, getMatchmakingStatus, joinRankedQueue } from './client'
 import { connectMatchmaking } from './socket'
@@ -9,14 +9,19 @@ import type { MatchmakingFound, QueueStatus } from './types'
 
 export function RankedMatchmaking({
   onEnteredMatch,
+  blockingMatches = [],
+  onContinueMatch,
 }: {
   onEnteredMatch: (response: CommandResponse) => void
+  blockingMatches?: CurrentMatchSummary[]
+  onContinueMatch?: (activity: CurrentMatchSummary) => void
 }) {
   const queryClient = useQueryClient()
   const enteredMatch = useRef<string | null>(null)
   const joining = useRef(false)
   const [connected, setConnected] = useState(false)
   const [transitionError, setTransitionError] = useState<unknown>(null)
+  const [dismissedBlockingMatchIds, setDismissedBlockingMatchIds] = useState<string[]>([])
   const [, setClockTick] = useState(0)
   const status = useQuery({
     queryKey: ['matchmaking'],
@@ -72,6 +77,16 @@ export function RankedMatchmaking({
     mutationFn: cancelRankedQueue,
     onSuccess: (value) => queryClient.setQueryData(['matchmaking'], value),
   })
+  const cancelBlockingRoom = useMutation({
+    mutationFn: (activity: CurrentMatchSummary) =>
+      cancelOpenMatch(activity.matchId, activity.version),
+    onSuccess: async (response) => {
+      setDismissedBlockingMatchIds((current) => [...current, response.matchId])
+      join.reset()
+      await queryClient.invalidateQueries({ queryKey: ['current-matches'] })
+      await queryClient.invalidateQueries({ queryKey: ['matchmaking'] })
+    },
+  })
   const queued = status.data?.state === 'QUEUED'
   const elapsed = status.data?.queuedAt
     ? Math.max(0, Math.floor((Date.now() - new Date(status.data.queuedAt).getTime()) / 1_000))
@@ -79,7 +94,12 @@ export function RankedMatchmaking({
   const range = queued
     ? Math.min(600, 200 + Math.floor(elapsed / 30) * 50)
     : status.data?.searchRange ?? 200
-  const error = join.error ?? cancel.error ?? status.error ?? transitionError
+  const error = join.error ?? cancel.error ?? cancelBlockingRoom.error
+    ?? status.error ?? transitionError
+  const recoveredBlockers = (blockingMatches.length > 0
+    ? blockingMatches
+    : blockingMatchesFrom(error))
+    .filter((activity) => !dismissedBlockingMatchIds.includes(activity.matchId))
   const startSearch = () => {
     if (joining.current || queued) return
     joining.current = true
@@ -94,7 +114,36 @@ export function RankedMatchmaking({
       <p className="queue-connection" aria-live="polite">
         Match alerts {connected ? 'connected' : 'reconnecting'}
       </p>
-      {queued ? (
+      {recoveredBlockers.length > 0 ? (
+        <div className="queue-status open-match-conflict">
+          <strong>You already have a game in progress.</strong>
+          {recoveredBlockers.map((activity) => (
+            <div className="open-match-conflict__actions" key={activity.matchId}>
+              <button
+                type="button"
+                className="button button--primary button--wide"
+                onClick={() => onContinueMatch?.(activity)}
+              >
+                Continue game
+              </button>
+              {activity.canCancel && (
+                <button
+                  type="button"
+                  className="button button--secondary button--wide"
+                  disabled={cancelBlockingRoom.isPending}
+                  onClick={() => {
+                    if (window.confirm('Cancel this unused private room?')) {
+                      cancelBlockingRoom.mutate(activity)
+                    }
+                  }}
+                >
+                  Cancel unused room
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : queued ? (
         <div className="queue-status" role="status">
           <strong>Searching for an opponent…</strong>
           <span>{formatElapsed(elapsed)} elapsed</span>
@@ -118,9 +167,22 @@ export function RankedMatchmaking({
           {join.isPending ? 'Joining queue…' : 'Find ranked match'}
         </button>
       )}
-      <ApiErrorNotice error={error} />
+      {recoveredBlockers.length === 0 && <ApiErrorNotice error={error} />}
     </article>
   )
+}
+
+function blockingMatchesFrom(error: unknown): CurrentMatchSummary[] {
+  if (!(error instanceof MatchApiError) || error.code !== 'OPEN_MATCH_EXISTS') return []
+  const context = error.context as { blockingMatches?: unknown } | null
+  if (!context || !Array.isArray(context.blockingMatches)) return []
+  return context.blockingMatches.filter((candidate): candidate is CurrentMatchSummary => {
+    if (!candidate || typeof candidate !== 'object') return false
+    const value = candidate as Partial<CurrentMatchSummary>
+    return typeof value.matchId === 'string'
+      && typeof value.resumeRoute === 'string'
+      && typeof value.version === 'number'
+  })
 }
 
 function formatElapsed(seconds: number): string {

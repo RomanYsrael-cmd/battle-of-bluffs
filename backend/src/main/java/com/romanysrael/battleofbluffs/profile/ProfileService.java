@@ -175,6 +175,9 @@ public class ProfileService {
             if (summary.phase() != MatchPhase.TERMINAL || summary.terminalResult() == null) {
                 continue;
             }
+            if (summary.terminalResult().reason() == TerminalReason.ROOM_CANCELLED) {
+                continue;
+            }
             total++;
             if (summary.mode() == MatchMode.RANKED) {
                 ranked++;
@@ -234,6 +237,9 @@ public class ProfileService {
         }
         if (result.reason() == TerminalReason.NO_CONTEST) {
             return "NO_CONTEST";
+        }
+        if (result.reason() == TerminalReason.ROOM_CANCELLED) {
+            return "CANCELLED";
         }
         if (result.winner() == null) {
             return "DRAW";

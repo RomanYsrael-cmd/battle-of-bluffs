@@ -12,6 +12,7 @@ public record PublicMatchEvent(long sequence, Type type, PlayerSide actor, Posit
                                BattleOutcome battleOutcome, List<UUID> removedPieceIds,
                                TerminalResult terminalResult) {
     public PublicMatchEvent { removedPieceIds = removedPieceIds == null ? List.of() : List.copyOf(removedPieceIds); }
-    public enum Type { MATCH_CREATED, PLAYER_JOINED, FORMATION_LOCKED, MATCH_STARTED, MOVE_APPLIED,
-        BATTLE_RESOLVED, FLAG_CHALLENGE_STARTED, MATCH_ENDED, PLAYER_RESIGNED }
+    public enum Type { MATCH_CREATED, PLAYER_JOINED, PLAYER_LEFT, ROOM_CANCELLED,
+        FORMATION_LOCKED, MATCH_STARTED, MOVE_APPLIED, BATTLE_RESOLVED,
+        FLAG_CHALLENGE_STARTED, MATCH_ENDED, PLAYER_RESIGNED }
 }

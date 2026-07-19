@@ -81,7 +81,15 @@ class RankedMatchmakingServiceTest {
         assertThatThrownBy(() -> service.enqueue(player))
                 .isInstanceOf(MatchmakingException.class)
                 .extracting(exception -> ((MatchmakingException) exception).code())
-                .isEqualTo("ACTIVE_MATCH");
+                .isEqualTo("OPEN_MATCH_EXISTS");
+
+        MatchmakingException conflict = org.junit.jupiter.api.Assertions.assertThrows(
+                MatchmakingException.class, () -> service.enqueue(player));
+        RankedMatchmakingService.OpenMatchRecovery recovery =
+                (RankedMatchmakingService.OpenMatchRecovery) conflict.context();
+        assertThat(recovery.blockingMatches()).hasSize(1);
+        assertThat(recovery.blockingMatches().get(0).canResume()).isTrue();
+        assertThat(recovery.blockingMatches().get(0).canCancel()).isTrue();
     }
 
     @Test

@@ -11,7 +11,7 @@ All endpoints require an authenticated Spring Security session. State changes al
 - `GET /api/matchmaking/status` returns `IDLE`, `QUEUED` or `MATCH_FOUND` and is the recovery path after a missed WebSocket notification.
 - `/user/queue/matchmaking` receives the user-scoped `MATCHMAKING_FOUND` STOMP event with the player's authorized initial view.
 
-Only active accounts with verified email may queue. A player has at most one entry and cannot queue while participating in any active match. Account eligibility and active-match state are checked again before pairing.
+Only active accounts with verified email may queue. A player has at most one entry and cannot queue while participating in any nonterminal lobby or match. Account eligibility and open-match state are checked again before pairing. A conflict returns HTTP 409 `OPEN_MATCH_EXISTS` with safe current-match recovery summaries rather than a dead-end generic error.
 
 ## Pair selection
 
@@ -31,7 +31,7 @@ Ranked matches:
 
 ## Frontend behavior
 
-The play dashboard provides queue join/cancel controls, elapsed time, current search range, rating, connection state and a direct transition into the matched formation. A synchronous request guard prevents rapid duplicate clicks before the pending UI renders, while the server also treats a duplicate enqueue as an idempotent status read.
+The play dashboard provides queue join/cancel controls, elapsed time, current search range, rating, connection state and a direct transition into the matched formation. When another match blocks entry, the queue card explains that a game is already in progress and offers Continue Game plus Cancel Unused Room only when the server authorizes it. Successful cancellation refreshes both current activity and queue eligibility. A synchronous request guard prevents rapid duplicate clicks before the pending UI renders, while the server also treats a duplicate enqueue as an idempotent status read.
 
 ## Deployment limitation
 

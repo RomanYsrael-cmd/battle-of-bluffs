@@ -1,8 +1,10 @@
 package com.romanysrael.battleofbluffs.game.web;
 
 import static com.romanysrael.battleofbluffs.game.application.Commands.FormationPiece;
+import static com.romanysrael.battleofbluffs.game.application.Commands.CancelMatchCommand;
 import static com.romanysrael.battleofbluffs.game.application.Commands.JoinMatchCommand;
 import static com.romanysrael.battleofbluffs.game.application.Commands.LockFormationCommand;
+import static com.romanysrael.battleofbluffs.game.application.Commands.LeaveMatchCommand;
 import static com.romanysrael.battleofbluffs.game.application.Commands.MakeMoveCommand;
 import static com.romanysrael.battleofbluffs.game.application.Commands.ResignCommand;
 import static com.romanysrael.battleofbluffs.game.application.Commands.SubmitFormationCommand;
@@ -10,6 +12,8 @@ import static com.romanysrael.battleofbluffs.game.application.Commands.SubmitFor
 import com.romanysrael.battleofbluffs.game.application.Commands.CreateMatchCommand;
 import com.romanysrael.battleofbluffs.game.application.MatchApplicationService;
 import com.romanysrael.battleofbluffs.game.application.MatchCommandResult;
+import com.romanysrael.battleofbluffs.game.application.MatchLifecycleResult;
+import com.romanysrael.battleofbluffs.game.application.MatchApplicationService.CurrentMatchSummary;
 import com.romanysrael.battleofbluffs.game.application.MatchMode;
 import com.romanysrael.battleofbluffs.game.application.PlayerMatchView;
 import com.romanysrael.battleofbluffs.game.application.TimerMode;
@@ -65,7 +69,13 @@ public final class MatchController {
                 request.commandId(),
                 request.roomCode(),
                 playerKey(authentication),
-                request.expectedVersion())));
+                request.expectedVersion() == null ? 0 : request.expectedVersion())));
+    }
+
+    @GetMapping("/current")
+    CurrentMatchesResponse current(Authentication authentication) {
+        List<CurrentMatchSummary> activities = matches.currentMatches(playerKey(authentication));
+        return new CurrentMatchesResponse(activities, activities.size() > 1);
     }
 
     @GetMapping("/{matchId}")
@@ -122,6 +132,24 @@ public final class MatchController {
                 request.commandId(), matchId, playerKey(authentication), request.expectedVersion())));
     }
 
+    @PostMapping("/{matchId}/cancel")
+    LifecycleResponse cancel(
+            @PathVariable UUID matchId,
+            @Valid @RequestBody CommandRequest request,
+            Authentication authentication) {
+        return lifecycle(matches.cancelMatch(new CancelMatchCommand(
+                request.commandId(), matchId, playerKey(authentication), request.expectedVersion())));
+    }
+
+    @PostMapping("/{matchId}/leave")
+    LifecycleResponse leave(
+            @PathVariable UUID matchId,
+            @Valid @RequestBody CommandRequest request,
+            Authentication authentication) {
+        return lifecycle(matches.leaveMatch(new LeaveMatchCommand(
+                request.commandId(), matchId, playerKey(authentication), request.expectedVersion())));
+    }
+
     private static String playerKey(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof AccountPrincipal principal)) {
             throw new AccountException("AUTHENTICATION_REQUIRED", "Sign in to continue.");
@@ -138,13 +166,18 @@ public final class MatchController {
                 result.view());
     }
 
+    private static LifecycleResponse lifecycle(MatchLifecycleResult result) {
+        return new LifecycleResponse(
+                result.commandId(), result.version(), result.matchId(), result.action());
+    }
+
     public record CreateRequest(TimerMode timerMode) {
     }
 
     public record JoinRequest(
             @NotNull UUID commandId,
             @NotBlank String roomCode,
-            @Positive long expectedVersion) {
+            @Positive Long expectedVersion) {
     }
 
     public record CommandRequest(@NotNull UUID commandId, @Positive long expectedVersion) {
@@ -179,5 +212,20 @@ public final class MatchController {
             UUID matchId,
             String roomCode,
             PlayerMatchView view) {
+    }
+
+    public record CurrentMatchesResponse(
+            List<CurrentMatchSummary> activities,
+            boolean multipleOpenMatches) {
+        public CurrentMatchesResponse {
+            activities = List.copyOf(activities);
+        }
+    }
+
+    public record LifecycleResponse(
+            UUID commandId,
+            long version,
+            UUID matchId,
+            MatchLifecycleResult.Action action) {
     }
 }

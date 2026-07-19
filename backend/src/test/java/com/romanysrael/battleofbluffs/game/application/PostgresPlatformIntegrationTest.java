@@ -3,6 +3,7 @@ package com.romanysrael.battleofbluffs.game.application;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.romanysrael.battleofbluffs.game.application.Commands.CreateMatchCommand;
+import com.romanysrael.battleofbluffs.game.application.Commands.CancelMatchCommand;
 import com.romanysrael.battleofbluffs.game.application.Commands.JoinMatchCommand;
 import com.romanysrael.battleofbluffs.game.persistence.MatchAggregateJpaRepository;
 import com.romanysrael.battleofbluffs.user.AccountMailSender;
@@ -55,7 +56,7 @@ class PostgresPlatformIntegrationTest {
     private AccountMailSender mailSender;
 
     @Test
-    void flywaySchemaPersistsMatchAndReplaysAcceptedCommandAfterRepositoryRestart() {
+    void flywaySchemaPersistsMatchAndReplaysLifecycleCommandsAfterRepositoryRestart() {
         assertThat(jdbc.queryForObject(
                 "SELECT success FROM flyway_schema_history WHERE version = '1'",
                 Boolean.class)).isTrue();
@@ -90,5 +91,27 @@ class PostgresPlatformIntegrationTest {
                 Integer.class,
                 created.view().matchId(),
                 joinCommandId)).isEqualTo(1);
+
+        CancelMatchCommand cancel = new CancelMatchCommand(
+                UUID.randomUUID(),
+                created.view().matchId(),
+                hostId.toString(),
+                accepted.version());
+        MatchLifecycleResult cancelled = restarted.cancelMatch(cancel);
+        PostgresMatchRepository cancelledRepository = new PostgresMatchRepository(
+                aggregates, codec, jdbc);
+        cancelledRepository.restorePersistedMatches();
+        MatchApplicationService afterCancellation = new MatchApplicationService(
+                cancelledRepository, new PlayerMatchViewMapper());
+
+        assertThat(afterCancellation.cancelMatch(cancel)).isEqualTo(cancelled);
+        assertThat(afterCancellation.currentMatches(hostId.toString())).isEmpty();
+        assertThat(afterCancellation.summary(created.view().matchId()).terminalResult().reason())
+                .isEqualTo(com.romanysrael.battleofbluffs.game.domain.TerminalReason.ROOM_CANCELLED);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM match_commands WHERE match_id = ? AND command_id = ?",
+                Integer.class,
+                created.view().matchId(),
+                cancel.commandId())).isEqualTo(1);
     }
 }
