@@ -5,6 +5,7 @@ import type { CommandResponse } from '../../api/types'
 import { ApiErrorNotice } from '../../components/ApiErrorNotice'
 import { DevelopmentWarning } from '../../components/DevelopmentWarning'
 import { BRAND } from '../../config/brand'
+import { Link } from 'react-router-dom'
 
 interface HomeScreenProps {
   onEnteredMatch: (response: CommandResponse) => void
@@ -33,6 +34,11 @@ export function HomeScreen({ onEnteredMatch }: HomeScreenProps) {
         </div>
         <DevelopmentWarning />
       </header>
+
+      <nav className="account-entry" aria-label="Account access">
+        <Link to="/login">Sign in</Link>
+        <Link to="/register">Create account</Link>
+      </nav>
 
       <section className="home-actions" aria-label="Private match actions">
         <article className="entry-card">

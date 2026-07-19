@@ -1,6 +1,7 @@
 package com.romanysrael.battleofbluffs.game.web;
 
 import com.romanysrael.battleofbluffs.game.application.*;
+import com.romanysrael.battleofbluffs.user.AccountException;
 import java.time.Instant;
 import java.util.stream.Collectors;
 import org.springframework.http.*;
@@ -9,6 +10,20 @@ import org.springframework.web.bind.annotation.*;
 
 @RestControllerAdvice
 public final class DevelopmentApiExceptionHandler {
+    @ExceptionHandler(AccountException.class)
+    ResponseEntity<ApiError> account(AccountException exception) {
+        HttpStatus status = switch (exception.code()) {
+            case "ACCOUNT_CONFLICT" -> HttpStatus.CONFLICT;
+            case "RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
+            case "AUTHENTICATION_REQUIRED" -> HttpStatus.UNAUTHORIZED;
+            case "ACCOUNT_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "INVALID_CREDENTIALS", "INVALID_TOKEN", "INVALID_ACCOUNT_INPUT" -> HttpStatus.BAD_REQUEST;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return ResponseEntity.status(status).body(new ApiError(
+                exception.code(), exception.getMessage(), Instant.now()));
+    }
+
     @ExceptionHandler(MatchApplicationException.class)
     ResponseEntity<ApiError> application(MatchApplicationException exception) {
         HttpStatus status = switch (exception.code()) {

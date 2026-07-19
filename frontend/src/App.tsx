@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   QueryClient,
   QueryClientProvider,
@@ -6,6 +6,15 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { getPlayerView } from './api/client'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import {
+  ForgotPasswordScreen,
+  LoginScreen,
+  RegistrationScreen,
+  ResetPasswordScreen,
+  VerificationStatusScreen,
+  VerifyEmailScreen,
+} from './auth/AuthScreens'
 import type { CommandResponse } from './api/types'
 import { ApiErrorNotice } from './components/ApiErrorNotice'
 import { FormationScreen } from './features/formation/FormationScreen'
@@ -107,13 +116,43 @@ function MatchApplication() {
     : <HomeScreen onEnteredMatch={enterMatch} />
 }
 
+function ApplicationRoutes() {
+  const [sessionExpired, setSessionExpired] = useState(false)
+  useEffect(() => {
+    const expired = () => setSessionExpired(true)
+    window.addEventListener('gotg:session-expired', expired)
+    return () => window.removeEventListener('gotg:session-expired', expired)
+  }, [])
+  return (
+    <>
+      {sessionExpired && (
+        <div className="session-expired" role="alert">
+          Your session expired. Sign in again to continue.
+          <button type="button" onClick={() => setSessionExpired(false)}>Dismiss</button>
+        </div>
+      )}
+      <Routes>
+        <Route path="/login" element={<LoginScreen />} />
+        <Route path="/register" element={<RegistrationScreen />} />
+        <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
+        <Route path="/reset-password" element={<ResetPasswordScreen />} />
+        <Route path="/verify-email" element={<VerifyEmailScreen />} />
+        <Route path="/verification-status" element={<VerificationStatusScreen />} />
+        <Route path="*" element={<MatchApplication />} />
+      </Routes>
+    </>
+  )
+}
+
 export default function App() {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   }))
   return (
     <QueryClientProvider client={queryClient}>
-      <MatchApplication />
+      <BrowserRouter>
+        <ApplicationRoutes />
+      </BrowserRouter>
     </QueryClientProvider>
   )
 }

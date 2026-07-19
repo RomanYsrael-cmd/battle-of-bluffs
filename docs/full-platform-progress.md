@@ -8,7 +8,7 @@ This document tracks the local implementation of the complete **Games of the Gen
 |---|---|---|
 | 1. Insignia and branding | Complete | Original SVG insignia, neutral Flag and centralized Games of the Generals branding. |
 | 2. Persistence | Complete | PostgreSQL schema, authoritative aggregate snapshots, restart recovery and bounded idempotency history. |
-| 3. Accounts | Pending | Session authentication, verification, reset, Mailpit, frontend auth. |
+| 3. Accounts | Complete | Session authentication, CSRF, verification/reset tokens, Mailpit configuration and frontend account routes. |
 | 4. Authenticated matches | Pending | Session-derived player identity and production match API. |
 | 5. WebSocket | Pending | Safe player-specific push synchronization. |
 | 6. Timers and presence | Pending | Authoritative clocks, reconnect and disconnect outcomes. |
@@ -23,6 +23,9 @@ This document tracks the local implementation of the complete **Games of the Gen
 - The existing pure Java `game/domain` package remains framework-independent.
 - PostgreSQL adapters, security, HTTP and WebSocket code live outside the domain.
 - Browser authentication uses Spring Security sessions and CSRF, not browser-stored JWTs.
+- CSRF tokens are bound to the server session, fetched from `/api/auth/csrf`, held in frontend memory and attached through the response-provided header name.
+- Verification and reset secrets use 256 bits of secure random entropy; PostgreSQL stores only SHA-256 hashes, expiry and one-time-use metadata.
+- Unverified accounts may sign in to reach verification status, while suspended and deleted accounts cannot authenticate. Password reset expires every registered live session for the account.
 - Match updates are player-specific so active opponent ranks and authoritative piece IDs remain secret.
 - The application remains a single Spring Boot modular monolith without Redis or message brokers.
 
@@ -35,8 +38,9 @@ This document tracks the local implementation of the complete **Games of the Gen
 - Starting point: backend 293 tests; frontend 55 tests after insignia refinement; frontend production build passed.
 - Phase 1: frontend 55/55 tests passed; TypeScript/Vite production build passed; `git diff --check` passed.
 - Phase 2: backend 294/294 tests passed. Flyway applied V1 to PostgreSQL 18.4, an authoritative match was created through an alternate local backend on port 18080, and the same versioned player view was recovered after a full backend restart. The regular development services on ports 8080 and 5173 were not disturbed.
+- Phase 3: backend 303/303 tests passed; frontend 56/56 tests and the production build passed. A normal-profile backend started successfully against PostgreSQL 18.4 on port 18080, issued a session-bound CSRF token and returned a structured 401 for an anonymous account request. Compose configuration, including Mailpit SMTP 1025 and UI 8025, validated successfully. Real Mailpit delivery could not be exercised because the local user was denied access to `/var/run/docker.sock`; the fake-mail tests cover hashed one-time verification/reset issuance without external SMTP.
 
 ## Blockers and remaining work
 
-- Docker API access may require the local user to have Docker socket permission. The existing healthy PostgreSQL service was sufficient for the Phase 2 restart validation.
-- Phases 3–11 remain.
+- Docker API access is currently blocked with: `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`. This prevents starting Mailpit and leaves the aggregate actuator health `DOWN` because the mail health contributor cannot reach port 1025; PostgreSQL remains healthy and account flows are covered with an in-memory mail sender.
+- Phases 4–11 remain.
