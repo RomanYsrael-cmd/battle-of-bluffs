@@ -1,6 +1,7 @@
 package com.romanysrael.battleofbluffs.game.web;
 
 import com.romanysrael.battleofbluffs.game.application.*;
+import com.romanysrael.battleofbluffs.matchmaking.MatchmakingException;
 import com.romanysrael.battleofbluffs.user.AccountException;
 import com.romanysrael.battleofbluffs.social.ChatException;
 import java.time.Instant;
@@ -31,6 +32,18 @@ public final class DevelopmentApiExceptionHandler {
             case "CHAT_RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
             case "CHAT_BLOCKED" -> HttpStatus.FORBIDDEN;
             case "CHAT_UNAVAILABLE", "OPPONENT_UNAVAILABLE" -> HttpStatus.CONFLICT;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return ResponseEntity.status(status).body(new ApiError(
+                exception.code(), exception.getMessage(), Instant.now()));
+    }
+
+    @ExceptionHandler(MatchmakingException.class)
+    ResponseEntity<ApiError> matchmaking(MatchmakingException exception) {
+        HttpStatus status = switch (exception.code()) {
+            case "ACCOUNT_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "EMAIL_VERIFICATION_REQUIRED" -> HttpStatus.FORBIDDEN;
+            case "ACTIVE_MATCH" -> HttpStatus.CONFLICT;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(new ApiError(

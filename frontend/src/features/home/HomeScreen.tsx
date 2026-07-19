@@ -4,6 +4,7 @@ import { createMatch, joinMatch } from '../../api/client'
 import type { CommandResponse } from '../../api/types'
 import { ApiErrorNotice } from '../../components/ApiErrorNotice'
 import { BRAND } from '../../config/brand'
+import { RankedMatchmaking } from '../../matchmaking/RankedMatchmaking'
 
 interface HomeScreenProps {
   onEnteredMatch: (response: CommandResponse) => void
@@ -88,6 +89,8 @@ export function HomeScreen({ onEnteredMatch }: HomeScreenProps) {
             {joinMutation.isPending ? 'Joining room…' : 'Join match'}
           </button>
         </form>
+
+        <RankedMatchmaking onEnteredMatch={onEnteredMatch} />
       </section>
       <ApiErrorNotice error={error} />
     </main>

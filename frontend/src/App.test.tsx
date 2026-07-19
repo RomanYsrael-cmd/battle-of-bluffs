@@ -17,6 +17,10 @@ vi.mock('./realtime/matchSocket', async (importOriginal) => {
   }
 })
 
+vi.mock('./matchmaking/RankedMatchmaking', () => ({
+  RankedMatchmaking: () => null,
+}))
+
 describe('private room entry flows', () => {
   const account = {
     id: '10000000-0000-4000-8000-000000000001',

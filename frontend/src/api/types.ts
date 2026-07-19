@@ -60,7 +60,7 @@ export interface PendingChallengeView {
 
 export interface PlayerMatchView {
   matchId: string
-  roomCode: string
+  roomCode: string | null
   version: number
   liveSequence: number
   phase: MatchPhase
@@ -108,7 +108,7 @@ export interface CommandResponse {
   commandId: string | null
   version: number
   matchId: string
-  roomCode: string
+  roomCode: string | null
   view: PlayerMatchView
 }
 

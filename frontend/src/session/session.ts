@@ -1,6 +1,6 @@
 export interface MatchSession {
   matchId: string
-  roomCode: string
+  roomCode: string | null
 }
 
 export const SESSION_STORAGE_KEY = 'battle-of-bluffs.match-session'
@@ -10,8 +10,10 @@ export const loadSession = (): MatchSession | null => {
   if (!stored) return null
   try {
     const parsed = JSON.parse(stored) as Partial<MatchSession>
-    return parsed.matchId && parsed.roomCode
-      ? { matchId: parsed.matchId, roomCode: parsed.roomCode }
+    const hasRoomCode = Object.prototype.hasOwnProperty.call(parsed, 'roomCode')
+    const validRoomCode = parsed.roomCode === null || typeof parsed.roomCode === 'string'
+    return parsed.matchId && hasRoomCode && validRoomCode
+      ? { matchId: parsed.matchId, roomCode: parsed.roomCode ?? null }
       : null
   } catch {
     return null

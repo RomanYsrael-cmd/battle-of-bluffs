@@ -22,6 +22,7 @@ public final class MatchSubscriptionInterceptor implements ChannelInterceptor {
             "^/user/queue/matches/([0-9a-fA-F-]{36})(?:/chat(?:/errors)?)?$");
     private static final Pattern MATCH_CHAT_SEND = Pattern.compile(
             "^/app/matches/([0-9a-fA-F-]{36})/chat$");
+    private static final String MATCHMAKING_SUBSCRIPTION = "/user/queue/matchmaking";
 
     private final ObjectProvider<MatchApplicationService> matches;
     private final MatchPresenceCoordinator presence;
@@ -43,6 +44,10 @@ public final class MatchSubscriptionInterceptor implements ChannelInterceptor {
 
         Authentication authentication = authentication(accessor);
         String destination = accessor.getDestination();
+        if (accessor.getCommand() == StompCommand.SUBSCRIBE
+                && MATCHMAKING_SUBSCRIPTION.equals(destination)) {
+            return message;
+        }
         Pattern allowedPattern = accessor.getCommand() == StompCommand.SEND
                 ? MATCH_CHAT_SEND
                 : MATCH_SUBSCRIPTION;

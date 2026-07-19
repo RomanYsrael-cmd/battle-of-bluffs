@@ -12,7 +12,9 @@ public class InMemoryMatchRepository implements MatchRepository {
 
     public void save(PrivateMatch match) {
         byId.put(match.id, match);
-        byCode.put(match.roomCode, match.id);
+        if (match.roomCode != null) {
+            byCode.put(match.roomCode, match.id);
+        }
     }
 
     public Optional<PrivateMatch> findById(UUID id) {

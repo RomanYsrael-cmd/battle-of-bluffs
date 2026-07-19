@@ -89,7 +89,9 @@ export function FormationScreen({ view, session, onView, onStale }: FormationScr
 
         {!opponentJoined && (
           <p className="waiting-message" role="status">
-            Waiting for a second player. Share room code {view.roomCode}.
+            {view.roomCode
+              ? `Waiting for a second player. Share room code ${view.roomCode}.`
+              : 'Waiting for the matched opponent.'}
           </p>
         )}
         <p className="opponent-status">

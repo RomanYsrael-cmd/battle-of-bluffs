@@ -81,6 +81,30 @@ public final class MatchApplicationService {
         return new MatchCommandResult(null, match.version, mapper.map(match, playerId));
     }
 
+    public RankedMatch createRankedMatch(String playerOneId, String playerTwoId) {
+        if (blank(playerOneId) || blank(playerTwoId) || playerOneId.equals(playerTwoId)) {
+            throw new IllegalArgumentException("Ranked matchmaking requires two distinct players");
+        }
+        Instant createdAt = clock.instant();
+        PrivateMatch match = new PrivateMatch(
+                UUID.randomUUID(),
+                null,
+                playerOneId,
+                MatchMode.RANKED,
+                TimerMode.STANDARD_15_PLUS_5);
+        match.players.put(PlayerSide.PLAYER_TWO, playerTwoId);
+        temporal.openFormation(match, createdAt);
+        addEvent(match, PublicMatchEvent.Type.MATCH_CREATED, PlayerSide.PLAYER_ONE,
+                null, null, null, null, null, List.of(), null);
+        addEvent(match, PublicMatchEvent.Type.PLAYER_JOINED, PlayerSide.PLAYER_TWO,
+                null, null, null, null, null, List.of(), null);
+        repository.save(match);
+        return new RankedMatch(
+                match.id,
+                mapper.map(match, playerOneId),
+                mapper.map(match, playerTwoId));
+    }
+
     public MatchCommandResult joinMatch(JoinMatchCommand command) {
         PrivateMatch match = byCode(command.roomCode());
         synchronized (match) {
@@ -330,6 +354,14 @@ public final class MatchApplicationService {
                         && summary.phase() != MatchPhase.TERMINAL);
     }
 
+    public Optional<MatchSummary> activeRankedMatch(String playerId) {
+        return summaries().stream()
+                .filter(summary -> summary.mode() == MatchMode.RANKED)
+                .filter(summary -> summary.phase() != MatchPhase.TERMINAL)
+                .filter(summary -> summary.participants().containsValue(playerId))
+                .findFirst();
+    }
+
     private MatchSummary summaryOf(PrivateMatch match) {
         MatchPhase phase = match.state == null ? MatchPhase.FORMATION : match.state.phase();
         TerminalResult terminalResult = match.state == null
@@ -354,6 +386,12 @@ public final class MatchApplicationService {
             Map<PlayerSide, String> participants,
             TerminalResult terminalResult,
             int acceptedMoveCount) {
+    }
+
+    public record RankedMatch(
+            UUID matchId,
+            PlayerMatchView playerOneView,
+            PlayerMatchView playerTwoView) {
     }
 
     private void applyMove(PrivateMatch match, Move move) {

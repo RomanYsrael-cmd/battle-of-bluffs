@@ -59,6 +59,13 @@ class MatchSubscriptionInterceptorTest {
     }
 
     @Test
+    void anyAuthenticatedAccountMaySubscribeToItsUserScopedMatchmakingDestination() {
+        assertDoesNotThrow(() -> interceptor.preSend(
+                subscription("/user/queue/matchmaking", UUID.randomUUID()),
+                mock(MessageChannel.class)));
+    }
+
+    @Test
     void authenticatedNonparticipantCannotSendOrSubscribeToAnotherMatchChat() {
         UUID outsiderId = UUID.randomUUID();
         assertThrows(AccessDeniedException.class, () -> interceptor.preSend(

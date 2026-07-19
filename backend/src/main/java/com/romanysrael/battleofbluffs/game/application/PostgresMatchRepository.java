@@ -174,7 +174,9 @@ public class PostgresMatchRepository implements MatchRepository {
 
     private void cache(PrivateMatch match) {
         byId.put(match.id, match);
-        byCode.put(match.roomCode.toUpperCase(Locale.ROOT), match.id);
+        if (match.roomCode != null) {
+            byCode.put(match.roomCode.toUpperCase(Locale.ROOT), match.id);
+        }
     }
 
     private static UUID uuidOrNull(String value) {

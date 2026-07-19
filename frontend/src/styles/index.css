@@ -111,6 +111,10 @@ h2 { font-size: 1.65rem; }
 .entry-card, .history-panel, .terminal-panel { padding: 1.5rem; border: 1px solid #393229; border-radius: 1.2rem; background: rgba(31, 27, 21, .94); }
 .entry-card p { color: #aaa394; line-height: 1.55; }
 .entry-card label { display: block; margin: 1rem 0 .35rem; color: #c7b99f; font-size: .8rem; font-weight: 700; }
+.ranked-entry { border-color: color-mix(in srgb, var(--gold) 55%, #393229); }
+.queue-connection { color: #aaa394; font-size: .82rem; }
+.queue-status { display: grid; gap: .55rem; }
+.queue-status span { color: #aaa394; }
 .text-input, .room-code-display { width: 100%; border: 1px solid #5a4933; border-radius: .55rem; background: #15120e; color: #f0d8aa; }
 .text-input { padding: .8rem; }
 .room-code-input, .room-code-display { font-family: ui-monospace, monospace; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
