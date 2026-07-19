@@ -37,12 +37,20 @@ public class MatchAggregateEntity {
 
     protected MatchAggregateEntity() { }
 
-    public MatchAggregateEntity(UUID id, String roomCode, String phase, long aggregateVersion,
-                                String snapshotJson, Instant now, boolean terminal) {
+    public MatchAggregateEntity(
+            UUID id,
+            String roomCode,
+            String mode,
+            String timerMode,
+            String phase,
+            long aggregateVersion,
+            String snapshotJson,
+            Instant now,
+            boolean terminal) {
         this.id = id;
         this.roomCode = roomCode;
-        this.mode = "CASUAL";
-        this.timerMode = "CASUAL_UNTIMED";
+        this.mode = mode;
+        this.timerMode = timerMode;
         this.phase = phase;
         this.aggregateVersion = aggregateVersion;
         this.snapshotJson = snapshotJson;
@@ -51,8 +59,16 @@ public class MatchAggregateEntity {
         this.terminalAt = terminal ? now : null;
     }
 
-    public void update(String phase, long aggregateVersion, String snapshotJson,
-                       Instant now, boolean terminal) {
+    public void update(
+            String mode,
+            String timerMode,
+            String phase,
+            long aggregateVersion,
+            String snapshotJson,
+            Instant now,
+            boolean terminal) {
+        this.mode = mode;
+        this.timerMode = timerMode;
         this.phase = phase;
         this.aggregateVersion = aggregateVersion;
         this.snapshotJson = snapshotJson;

@@ -8,7 +8,11 @@ import java.util.UUID;
 public final class Commands {
     private Commands() { }
 
-    public record CreateMatchCommand(String playerId) { }
+    public record CreateMatchCommand(String playerId, MatchMode mode, TimerMode timerMode) {
+        public CreateMatchCommand(String playerId) {
+            this(playerId, MatchMode.CASUAL, TimerMode.CASUAL_UNTIMED);
+        }
+    }
     public record JoinMatchCommand(UUID commandId, String roomCode, String playerId, long expectedVersion) { }
     public record FormationPiece(UUID pieceId, Rank rank, Position position) { }
     public record SubmitFormationCommand(UUID commandId, UUID matchId, String playerId,

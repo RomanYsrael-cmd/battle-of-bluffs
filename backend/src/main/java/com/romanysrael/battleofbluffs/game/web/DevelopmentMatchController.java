@@ -9,11 +9,13 @@ import jakarta.validation.constraints.*;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
 
 /** Development-only API. playerId is an insecure temporary credential, not authentication. */
 @RestController
 @RequestMapping("/api/dev/matches")
+@Profile("dev")
 public final class DevelopmentMatchController {
     private final MatchApplicationService service;
 

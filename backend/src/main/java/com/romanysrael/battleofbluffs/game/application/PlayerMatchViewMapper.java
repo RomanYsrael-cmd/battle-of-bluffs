@@ -42,7 +42,8 @@ public final class PlayerMatchViewMapper {
                 pending.flagPosition(), pending.respondingPlayer(),
                 pending.respondingPlayer() == side ? pending.eligibleChallengerIds() : Set.of());
         return new PlayerMatchView(match.id, match.roomCode, match.version,
-                match.state == null ? MatchPhase.FORMATION : match.state.phase(), playerId, side,
+                match.state == null ? MatchPhase.FORMATION : match.state.phase(),
+                match.mode, match.timerMode, playerId, side,
                 match.players.containsKey(PlayerSide.PLAYER_ONE), match.players.containsKey(PlayerSide.PLAYER_TWO),
                 match.locked.contains(PlayerSide.PLAYER_ONE), match.locked.contains(PlayerSide.PLAYER_TWO),
                 match.state == null ? null : match.state.currentPlayer().orElse(null), own, opponent, events, challenge,

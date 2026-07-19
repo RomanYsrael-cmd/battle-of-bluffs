@@ -6,17 +6,17 @@ import {
   SESSION_STORAGE_KEY,
 } from './session'
 
-describe('temporary tab identity', () => {
+describe('authenticated match navigation', () => {
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
   })
 
-  it('stores identity only in sessionStorage and clears the local session', () => {
-    const identity = { playerId: 'tab-a', matchId: 'match-a', roomCode: 'ROOMA1' }
-    saveSession(identity)
+  it('stores only match navigation data and clears the local session', () => {
+    const navigation = { matchId: 'match-a', roomCode: 'ROOMA1' }
+    saveSession(navigation)
 
-    expect(loadSession()).toEqual(identity)
+    expect(loadSession()).toEqual(navigation)
     expect(sessionStorage.getItem(SESSION_STORAGE_KEY)).not.toBeNull()
     expect(localStorage.length).toBe(0)
 
@@ -27,7 +27,7 @@ describe('temporary tab identity', () => {
   it('does not accept incomplete or corrupt stored identities', () => {
     sessionStorage.setItem(SESSION_STORAGE_KEY, '{bad json')
     expect(loadSession()).toBeNull()
-    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ playerId: 'only-one-field' }))
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ matchId: 'only-one-field' }))
     expect(loadSession()).toBeNull()
   })
 })

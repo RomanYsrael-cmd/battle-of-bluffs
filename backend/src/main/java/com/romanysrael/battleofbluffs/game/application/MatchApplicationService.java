@@ -34,12 +34,19 @@ public final class MatchApplicationService {
 
     public MatchCommandResult createMatch(CreateMatchCommand command) {
         String playerId = blank(command.playerId()) ? opaquePlayerId() : command.playerId();
+        MatchMode mode = command.mode() == null ? MatchMode.CASUAL : command.mode();
+        TimerMode timerMode = command.timerMode() == null
+                ? TimerMode.CASUAL_UNTIMED
+                : command.timerMode();
+        if (mode == MatchMode.RANKED) {
+            timerMode = TimerMode.STANDARD_15_PLUS_5;
+        }
         UUID id = UUID.randomUUID();
         String code;
         do {
             code = roomCode();
         } while (repository.findByRoomCode(code).isPresent());
-        PrivateMatch match = new PrivateMatch(id, code, playerId);
+        PrivateMatch match = new PrivateMatch(id, code, playerId, mode, timerMode);
         addEvent(match, PublicMatchEvent.Type.MATCH_CREATED, PlayerSide.PLAYER_ONE,
                 null, null, null, null, null, List.of(), null);
         repository.save(match);

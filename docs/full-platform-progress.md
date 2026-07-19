@@ -9,7 +9,7 @@ This document tracks the local implementation of the complete **Games of the Gen
 | 1. Insignia and branding | Complete | Original SVG insignia, neutral Flag and centralized Games of the Generals branding. |
 | 2. Persistence | Complete | PostgreSQL schema, authoritative aggregate snapshots, restart recovery and bounded idempotency history. |
 | 3. Accounts | Complete | Session authentication, CSRF, verification/reset tokens, Mailpit configuration and frontend account routes. |
-| 4. Authenticated matches | Pending | Session-derived player identity and production match API. |
+| 4. Authenticated matches | Complete | Session-derived player identity, production match API, casual clock configuration and authenticated frontend. |
 | 5. WebSocket | Pending | Safe player-specific push synchronization. |
 | 6. Timers and presence | Pending | Authoritative clocks, reconnect and disconnect outcomes. |
 | 7. Chat and safety | Pending | Chat, mute, block and reports. |
@@ -39,8 +39,9 @@ This document tracks the local implementation of the complete **Games of the Gen
 - Phase 1: frontend 55/55 tests passed; TypeScript/Vite production build passed; `git diff --check` passed.
 - Phase 2: backend 294/294 tests passed. Flyway applied V1 to PostgreSQL 18.4, an authoritative match was created through an alternate local backend on port 18080, and the same versioned player view was recovered after a full backend restart. The regular development services on ports 8080 and 5173 were not disturbed.
 - Phase 3: backend 303/303 tests passed; frontend 56/56 tests and the production build passed. A normal-profile backend started successfully against PostgreSQL 18.4 on port 18080, issued a session-bound CSRF token and returned a structured 401 for an anonymous account request. Compose configuration, including Mailpit SMTP 1025 and UI 8025, validated successfully. Real Mailpit delivery could not be exercised because the local user was denied access to `/var/run/docker.sock`; the fake-mail tests cover hashed one-time verification/reset issuance without external SMTP.
+- Phase 4: backend 308/308 tests passed; frontend 56/56 tests and the production build passed. Production match requests contain no player identity input, use the authenticated account UUID for every command and view, reject anonymous/cross-match access, preserve CSRF/version/idempotency behavior, and complete an authenticated create/join/form/form-lock/move/resign/terminal-disclosure MockMvc flow. The frontend now gates game routes on `/api/auth/me`, stores no player credential, uses `/api/matches`, supports untimed or 15+5 casual rooms and sends credentials plus CSRF. `/api/dev` is registered only under the explicit `dev` profile.
 
 ## Blockers and remaining work
 
 - Docker API access is currently blocked with: `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`. This prevents starting Mailpit and leaves the aggregate actuator health `DOWN` because the mail health contributor cannot reach port 1025; PostgreSQL remains healthy and account flows are covered with an in-memory mail sender.
-- Phases 4–11 remain.
+- Phases 5–11 remain.

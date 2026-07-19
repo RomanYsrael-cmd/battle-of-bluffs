@@ -63,6 +63,8 @@ export interface PlayerMatchView {
   roomCode: string
   version: number
   phase: MatchPhase
+  mode: 'CASUAL' | 'RANKED'
+  timerMode: 'CASUAL_UNTIMED' | 'STANDARD_15_PLUS_5'
   requestingPlayerId: string
   requestingSide: PlayerSide
   playerOneOccupied: boolean
@@ -81,7 +83,6 @@ export interface PlayerMatchView {
 export interface CommandResponse {
   commandId: string | null
   version: number
-  playerId: string
   matchId: string
   roomCode: string
   view: PlayerMatchView

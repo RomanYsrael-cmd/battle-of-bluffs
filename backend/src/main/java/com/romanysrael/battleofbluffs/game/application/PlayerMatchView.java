@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.UUID;
 
 public record PlayerMatchView(UUID matchId, String roomCode, long version, MatchPhase phase,
+                              MatchMode mode, TimerMode timerMode,
                               String requestingPlayerId, PlayerSide requestingSide,
                               boolean playerOneOccupied, boolean playerTwoOccupied,
                               boolean playerOneLocked, boolean playerTwoLocked,

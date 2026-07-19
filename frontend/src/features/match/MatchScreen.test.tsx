@@ -10,7 +10,6 @@ import { MatchBoard } from './MatchBoard'
 import { TerminalDisclosure } from './TerminalDisclosure'
 
 const session = {
-  playerId: 'dev-player-a',
   matchId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   roomCode: 'ABC234',
 }
@@ -109,6 +108,9 @@ describe('active and terminal match screens', () => {
     const synchronized = activeView({ version: 7, currentPlayer: 'PLAYER_TWO' })
     saveSession(session)
     const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        id: 'account-id', username: 'marshal', displayName: 'Marshal', status: 'ACTIVE', emailVerified: true,
+      }))
       .mockResolvedValueOnce(jsonResponse(initial))
       .mockResolvedValueOnce(jsonResponse({
         code: 'STALE_VERSION',
@@ -125,7 +127,7 @@ describe('active and terminal match screens', () => {
 
     await waitFor(() => expect(screen.getAllByText(/synchronizing the latest state/i).length)
       .toBeGreaterThan(0))
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
     expect(await screen.findByText('Opponent’s turn')).toBeInTheDocument()
   })

@@ -3,9 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { createMatch, joinMatch } from '../../api/client'
 import type { CommandResponse } from '../../api/types'
 import { ApiErrorNotice } from '../../components/ApiErrorNotice'
-import { DevelopmentWarning } from '../../components/DevelopmentWarning'
 import { BRAND } from '../../config/brand'
-import { Link } from 'react-router-dom'
 
 interface HomeScreenProps {
   onEnteredMatch: (response: CommandResponse) => void
@@ -13,7 +11,12 @@ interface HomeScreenProps {
 
 export function HomeScreen({ onEnteredMatch }: HomeScreenProps) {
   const [roomCode, setRoomCode] = useState('')
-  const createMutation = useMutation({ mutationFn: createMatch, retry: false, onSuccess: onEnteredMatch })
+  const [timerMode, setTimerMode] = useState<'CASUAL_UNTIMED' | 'STANDARD_15_PLUS_5'>('CASUAL_UNTIMED')
+  const createMutation = useMutation({
+    mutationFn: () => createMatch(timerMode),
+    retry: false,
+    onSuccess: onEnteredMatch,
+  })
   const joinMutation = useMutation({
     mutationFn: () => joinMatch(roomCode.trim().toUpperCase()),
     retry: false,
@@ -32,19 +35,23 @@ export function HomeScreen({ onEnteredMatch }: HomeScreenProps) {
             Create a private room or join another player with their six-character room code.
           </p>
         </div>
-        <DevelopmentWarning />
       </header>
-
-      <nav className="account-entry" aria-label="Account access">
-        <Link to="/login">Sign in</Link>
-        <Link to="/register">Create account</Link>
-      </nav>
 
       <section className="home-actions" aria-label="Private match actions">
         <article className="entry-card">
           <p className="eyebrow">Host</p>
           <h2>Create private match</h2>
-          <p>A temporary identity and room code will be generated for this browser tab.</p>
+          <p>Your account takes Player 1 and receives a private room code to share.</p>
+          <label htmlFor="timer-mode">Clock</label>
+          <select
+            id="timer-mode"
+            className="text-input"
+            value={timerMode}
+            onChange={(event) => setTimerMode(event.target.value as typeof timerMode)}
+          >
+            <option value="CASUAL_UNTIMED">Untimed</option>
+            <option value="STANDARD_15_PLUS_5">15 minutes + 5 seconds</option>
+          </select>
           <button
             type="button"
             className="button button--primary button--wide"

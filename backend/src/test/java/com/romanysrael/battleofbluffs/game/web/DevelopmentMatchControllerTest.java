@@ -13,9 +13,11 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.ActiveProfiles;
 
 @WebMvcTest(DevelopmentMatchController.class)
 @Import({MatchApplicationService.class,InMemoryMatchRepository.class,PlayerMatchViewMapper.class,DevelopmentApiExceptionHandler.class})
+@ActiveProfiles("dev")
 class DevelopmentMatchControllerTest {
     @Autowired MockMvc mvc; @Autowired ObjectMapper json;
 

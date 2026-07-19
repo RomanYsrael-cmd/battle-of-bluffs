@@ -30,7 +30,7 @@ export function ActiveMatchScreen({
   }
   const moveMutation = useMutation({
     mutationFn: ({ source, destination }: { source: Position; destination: Position }) =>
-      makeMove(session.matchId, session.playerId, view.version, source, destination),
+      makeMove(session.matchId, view.version, source, destination),
     retry: false,
     onSuccess: (response) => {
       setSelectedPieceId(null)
@@ -39,7 +39,7 @@ export function ActiveMatchScreen({
     onError: handleError,
   })
   const resignMutation = useMutation({
-    mutationFn: () => resign(session.matchId, session.playerId, view.version),
+    mutationFn: () => resign(session.matchId, view.version),
     retry: false,
     onSuccess: (response) => onView(response),
     onError: handleError,

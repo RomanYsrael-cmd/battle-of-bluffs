@@ -6,7 +6,6 @@ import type { PlayerMatchView } from '../../api/types'
 import { FormationScreen } from './FormationScreen'
 
 const session = {
-  playerId: 'dev-player-a',
   matchId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   roomCode: 'ABC234',
 }

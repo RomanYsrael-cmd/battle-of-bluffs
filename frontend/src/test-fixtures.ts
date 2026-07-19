@@ -20,6 +20,8 @@ export const matchView = (overrides: Partial<PlayerMatchView> = {}): PlayerMatch
   roomCode: 'ABC234',
   version: 1,
   phase: 'FORMATION',
+  mode: 'CASUAL',
+  timerMode: 'CASUAL_UNTIMED',
   requestingPlayerId: 'dev-player-a',
   requestingSide: 'PLAYER_ONE',
   playerOneOccupied: true,
@@ -39,7 +41,6 @@ export const matchView = (overrides: Partial<PlayerMatchView> = {}): PlayerMatch
 export const commandResponse = (view: PlayerMatchView): CommandResponse => ({
   commandId: null,
   version: view.version,
-  playerId: view.requestingPlayerId,
   matchId: view.matchId,
   roomCode: view.roomCode,
   view,

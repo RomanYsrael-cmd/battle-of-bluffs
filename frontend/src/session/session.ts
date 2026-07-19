@@ -1,5 +1,4 @@
 export interface MatchSession {
-  playerId: string
   matchId: string
   roomCode: string
 }
@@ -11,8 +10,8 @@ export const loadSession = (): MatchSession | null => {
   if (!stored) return null
   try {
     const parsed = JSON.parse(stored) as Partial<MatchSession>
-    return parsed.playerId && parsed.matchId && parsed.roomCode
-      ? { playerId: parsed.playerId, matchId: parsed.matchId, roomCode: parsed.roomCode }
+    return parsed.matchId && parsed.roomCode
+      ? { matchId: parsed.matchId, roomCode: parsed.roomCode }
       : null
   } catch {
     return null

@@ -22,7 +22,8 @@ class MatchSnapshotCodecTest {
     void restoresActiveAggregateAndAcceptedCommandReplay() {
         InMemoryMatchRepository originalRepository = new InMemoryMatchRepository();
         MatchApplicationService original = new MatchApplicationService(originalRepository, mapper);
-        MatchCommandResult created = original.createMatch(new CreateMatchCommand("alice"));
+        MatchCommandResult created = original.createMatch(new CreateMatchCommand(
+                "alice", MatchMode.CASUAL, TimerMode.STANDARD_15_PLUS_5));
         UUID joinId = UUID.randomUUID();
         JoinMatchCommand join = new JoinMatchCommand(
                 joinId, created.view().roomCode(), "bob", 1);
@@ -43,6 +44,8 @@ class MatchSnapshotCodecTest {
 
         PlayerMatchView alice = restarted.getView(matchId, "alice");
         assertEquals(MatchPhase.ACTIVE, alice.phase());
+        assertEquals(MatchMode.CASUAL, alice.mode());
+        assertEquals(TimerMode.STANDARD_15_PLUS_5, alice.timerMode());
         assertEquals(6, alice.version());
         assertEquals(21, alice.ownPieces().size());
         assertEquals(21, alice.opponentPieces().size());

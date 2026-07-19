@@ -1,5 +1,4 @@
 import type { PlayerMatchView } from '../../api/types'
-import { DevelopmentWarning } from '../../components/DevelopmentWarning'
 import { BRAND } from '../../config/brand'
 
 interface MatchHeaderProps {
@@ -20,11 +19,11 @@ export function MatchHeader({ view, onLeave }: MatchHeaderProps) {
           </label>
           <span>Side {view.requestingSide === 'PLAYER_ONE' ? '1' : '2'}</span>
           <span>Phase {view.phase}</span>
+          <span>{view.timerMode === 'CASUAL_UNTIMED' ? 'Untimed' : '15 min + 5 sec'}</span>
           <span>Version {view.version}</span>
         </div>
       </div>
       <div className="match-header__actions">
-        <DevelopmentWarning />
         <button type="button" className="button button--ghost" onClick={onLeave}>
           Leave local session
         </button>

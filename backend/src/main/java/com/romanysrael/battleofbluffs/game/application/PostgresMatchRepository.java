@@ -51,13 +51,21 @@ public class PostgresMatchRepository implements MatchRepository {
                 .orElseGet(() -> new MatchAggregateEntity(
                         match.id,
                         match.roomCode,
+                        match.mode.name(),
+                        match.timerMode.name(),
                         phase.name(),
                         match.version,
                         snapshot,
                         now,
                         phase == MatchPhase.TERMINAL));
         entity.update(
-                phase.name(), match.version, snapshot, now, phase == MatchPhase.TERMINAL);
+                match.mode.name(),
+                match.timerMode.name(),
+                phase.name(),
+                match.version,
+                snapshot,
+                now,
+                phase == MatchPhase.TERMINAL);
         aggregates.saveAndFlush(entity);
 
         persistPlayers(match, now);
@@ -88,10 +96,13 @@ public class PostgresMatchRepository implements MatchRepository {
 
     private void persistPlayers(PrivateMatch match, Instant now) {
         jdbc.update("DELETE FROM match_players WHERE match_id = ?", match.id);
-        match.players.forEach((side, playerKey) -> jdbc.update("""
-                INSERT INTO match_players(match_id, side, player_key, joined_at)
-                VALUES (?, ?, ?, ?)
-                """, match.id, side.name(), playerKey, Timestamp.from(now)));
+        match.players.forEach((side, playerKey) -> {
+            UUID accountId = uuidOrNull(playerKey);
+            jdbc.update("""
+                    INSERT INTO match_players(match_id, side, user_id, player_key, joined_at)
+                    VALUES (?, ?, (SELECT id FROM users WHERE id = ?), ?, ?)
+                    """, match.id, side.name(), accountId, playerKey, Timestamp.from(now));
+        });
     }
 
     private void persistFormations(PrivateMatch match) {
@@ -158,5 +169,13 @@ public class PostgresMatchRepository implements MatchRepository {
     private void cache(PrivateMatch match) {
         byId.put(match.id, match);
         byCode.put(match.roomCode.toUpperCase(Locale.ROOT), match.id);
+    }
+
+    private static UUID uuidOrNull(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 }

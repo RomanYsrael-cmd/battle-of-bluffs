@@ -54,7 +54,6 @@ export function FormationScreen({ view, session, onView, onStale }: FormationScr
   const submitMutation = useMutation({
     mutationFn: () => submitFormation(
       session.matchId,
-      session.playerId,
       view.version,
       formationItems(formation.inventory, formation.placements),
     ),
@@ -66,7 +65,7 @@ export function FormationScreen({ view, session, onView, onStale }: FormationScr
     onError: handleError,
   })
   const lockMutation = useMutation({
-    mutationFn: () => lockFormation(session.matchId, session.playerId, view.version),
+    mutationFn: () => lockFormation(session.matchId, view.version),
     retry: false,
     onSuccess: (response) => onView(response),
     onError: handleError,

@@ -32,6 +32,8 @@ public final class MatchSnapshotCodec {
         Snapshot snapshot = new Snapshot(
                 match.id,
                 match.roomCode,
+                match.mode,
+                match.timerMode,
                 match.version,
                 match.nextEventSequence,
                 Map.copyOf(match.players),
@@ -49,7 +51,12 @@ public final class MatchSnapshotCodec {
         try {
             Snapshot snapshot = json.readValue(encoded, Snapshot.class);
             String creator = snapshot.players().get(PlayerSide.PLAYER_ONE);
-            PrivateMatch match = new PrivateMatch(snapshot.id(), snapshot.roomCode(), creator);
+            MatchMode mode = snapshot.mode() == null ? MatchMode.CASUAL : snapshot.mode();
+            TimerMode timerMode = snapshot.timerMode() == null
+                    ? TimerMode.CASUAL_UNTIMED
+                    : snapshot.timerMode();
+            PrivateMatch match = new PrivateMatch(
+                    snapshot.id(), snapshot.roomCode(), creator, mode, timerMode);
             match.version = snapshot.version();
             match.nextEventSequence = snapshot.nextEventSequence();
             match.players.clear();
@@ -152,6 +159,8 @@ public final class MatchSnapshotCodec {
     public record Snapshot(
             UUID id,
             String roomCode,
+            MatchMode mode,
+            TimerMode timerMode,
             long version,
             long nextEventSequence,
             Map<PlayerSide, String> players,

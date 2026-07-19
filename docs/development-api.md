@@ -2,7 +2,9 @@
 
 Base path: `/api/dev/matches`
 
-This API exists to exercise the in-memory match application layer. A `playerId` supplied in a body or query parameter is only a temporary development credential and is not secure authentication. Matches and command histories disappear whenever the backend restarts.
+This insecure compatibility API is registered only when the explicit Spring `dev` profile is active. Start it with `SPRING_PROFILES_ACTIVE=dev`; it is absent from normal and production profiles. A `playerId` supplied in a body or query parameter is only a temporary development credential and is not authentication. The normal PostgreSQL match repository still persists its data.
+
+New frontend work must use the authenticated `/api/matches` API described below. `/api/dev` exists only for low-level diagnostics and legacy application-layer testing.
 
 Accepted state-changing commands use a UUID `commandId` and the current `expectedVersion`. A match starts at version `1`; every accepted command increments it exactly once. Retry an accepted request with the same command ID and identical payload to receive its recorded result. Reusing the ID with another payload produces `COMMAND_CONFLICT`.
 
@@ -44,4 +46,16 @@ A move request contains no rank or claimed outcome:
 
 Errors consistently contain `code`, `message`, and `timestamp`. Active opponent pieces use a separate DTO containing only position and a server-generated public UUID. That public UUID is stable within the match but is distinct from the formation submitter's `pieceId`; the same translation applies to opponent removals and post-match opponent pieces. Ranks are disclosed to both participants only after the match is terminal.
 
-WebSocket delivery, authentication, database match persistence, matchmaking, scheduling, and disconnect handling remain deferred. The development frontend currently consumes this API through short-interval REST polling.
+## Authenticated match API
+
+The normal frontend uses a Spring Security session and session-bound CSRF token. Player identity always comes from the authenticated `AccountPrincipal`; production request bodies have no `playerId` property.
+
+- `POST /api/matches` — create a casual private match with `CASUAL_UNTIMED` or `STANDARD_15_PLUS_5`.
+- `POST /api/matches/join` — join by `commandId`, `roomCode`, and `expectedVersion`.
+- `GET /api/matches/{matchId}` — retrieve the authenticated participant's secrecy-safe view.
+- `PUT /api/matches/{matchId}/formation`
+- `POST /api/matches/{matchId}/lock`
+- `POST /api/matches/{matchId}/moves`
+- `POST /api/matches/{matchId}/resign`
+
+All state-changing browser requests include the CSRF header returned by `GET /api/auth/csrf` and `credentials: include`. Anonymous users, nonparticipants, stale versions, reused command IDs with changed payloads, and cross-player actions are rejected.

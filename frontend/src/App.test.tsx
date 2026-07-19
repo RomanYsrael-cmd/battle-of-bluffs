@@ -5,6 +5,13 @@ import { commandResponse, jsonResponse, matchView } from './test-fixtures'
 import { loadSession } from './session/session'
 
 describe('private room entry flows', () => {
+  const account = {
+    id: '10000000-0000-4000-8000-000000000001',
+    username: 'host',
+    displayName: 'Host',
+    status: 'ACTIVE',
+    emailVerified: true,
+  }
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
@@ -12,17 +19,19 @@ describe('private room entry flows', () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
-  it('creates a private match, stores the generated identity, and displays its room code', async () => {
+  it('creates a private match for the session account and stores only navigation data', async () => {
     const view = matchView({ requestingPlayerId: 'generated-host' })
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(commandResponse(view), 201)))
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse(account))
+      .mockResolvedValueOnce(jsonResponse(commandResponse(view), 201)))
     render(<App />)
 
+    await screen.findByRole('button', { name: 'Sign out' })
     fireEvent.click(screen.getByRole('button', { name: 'Create private match' }))
 
     expect(await screen.findByDisplayValue('ABC234')).toBeInTheDocument()
     expect(screen.getByText(/waiting for a second player/i)).toBeInTheDocument()
     expect(loadSession()).toEqual({
-      playerId: 'generated-host',
       matchId: view.matchId,
       roomCode: 'ABC234',
     })
@@ -35,27 +44,31 @@ describe('private room entry flows', () => {
       requestingSide: 'PLAYER_TWO',
       playerTwoOccupied: true,
     })
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(commandResponse(view)))
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(account))
+      .mockResolvedValueOnce(jsonResponse(commandResponse(view)))
     vi.stubGlobal('fetch', fetchMock)
     render(<App />)
 
-    fireEvent.change(screen.getByLabelText('Room code'), { target: { value: 'abc234' } })
+    fireEvent.change(await screen.findByLabelText('Room code'), { target: { value: 'abc234' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join match' }))
 
     expect(await screen.findByText('Side 2')).toBeInTheDocument()
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/dev/matches/join')
-    expect(loadSession()?.playerId).toBe('generated-guest')
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/matches/join')
+    expect(loadSession()?.matchId).toBe(view.matchId)
   })
 
   it('shows a readable structured API error instead of the backend detail', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
-      code: 'MATCH_NOT_FOUND',
-      message: 'repository implementation detail',
-      timestamp: 'now',
-    }, 404)))
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse(account))
+      .mockResolvedValueOnce(jsonResponse({
+        code: 'MATCH_NOT_FOUND',
+        message: 'repository implementation detail',
+        timestamp: 'now',
+      }, 404)))
     render(<App />)
 
-    fireEvent.change(screen.getByLabelText('Room code'), { target: { value: 'none99' } })
+    fireEvent.change(await screen.findByLabelText('Room code'), { target: { value: 'none99' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join match' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('That room could not be found.')
@@ -64,9 +77,11 @@ describe('private room entry flows', () => {
 
   it('clears the current tab session and returns home', async () => {
     const view = matchView({ requestingPlayerId: 'generated-host' })
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(commandResponse(view), 201)))
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse(account))
+      .mockResolvedValueOnce(jsonResponse(commandResponse(view), 201)))
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'Create private match' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Create private match' }))
     await screen.findByDisplayValue('ABC234')
 
     fireEvent.click(screen.getByRole('button', { name: 'Leave local session' }))

@@ -6,7 +6,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 import { getPlayerView } from './api/client'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import {
   ForgotPasswordScreen,
   LoginScreen,
@@ -15,6 +15,7 @@ import {
   VerificationStatusScreen,
   VerifyEmailScreen,
 } from './auth/AuthScreens'
+import { getCurrentAccount, logout } from './auth/client'
 import type { CommandResponse } from './api/types'
 import { ApiErrorNotice } from './components/ApiErrorNotice'
 import { FormationScreen } from './features/formation/FormationScreen'
@@ -28,14 +29,14 @@ import {
   type MatchSession,
 } from './session/session'
 
-const matchQueryKey = (session: MatchSession) => ['match', session.matchId, session.playerId]
+const matchQueryKey = (session: MatchSession) => ['match', session.matchId]
 
 function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () => void }) {
   const queryClient = useQueryClient()
   const [syncMessage, setSyncMessage] = useState('')
   const query = useQuery({
     queryKey: matchQueryKey(session),
-    queryFn: () => getPlayerView(session.matchId, session.playerId),
+    queryFn: () => getPlayerView(session.matchId),
     retry: false,
     refetchInterval: (currentQuery) =>
       currentQuery.state.data?.phase === 'TERMINAL' ? false : 1_500,
@@ -96,7 +97,6 @@ function MatchApplication() {
 
   const enterMatch = (response: CommandResponse) => {
     const nextSession = {
-      playerId: response.playerId,
       matchId: response.matchId,
       roomCode: response.roomCode,
     }
@@ -114,6 +114,28 @@ function MatchApplication() {
   return session
     ? <MatchRoute session={session} onLeave={leave} />
     : <HomeScreen onEnteredMatch={enterMatch} />
+}
+
+function AuthenticatedMatchApplication() {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const account = useQuery({ queryKey: ['account'], queryFn: getCurrentAccount, retry: false })
+  if (account.isPending) return <main className="app-shell"><p role="status">Loading account…</p></main>
+  if (!account.data) return <Navigate to="/login" replace />
+  return (
+    <>
+      <div className="account-bar">
+        <span>{account.data.displayName}</span>
+        {!account.data.emailVerified && <Link to="/verification-status">Verify email</Link>}
+        <button type="button" onClick={() => void logout().then(() => {
+          clearSession()
+          queryClient.clear()
+          navigate('/login', { replace: true })
+        })}>Sign out</button>
+      </div>
+      <MatchApplication />
+    </>
+  )
 }
 
 function ApplicationRoutes() {
@@ -138,7 +160,7 @@ function ApplicationRoutes() {
         <Route path="/reset-password" element={<ResetPasswordScreen />} />
         <Route path="/verify-email" element={<VerifyEmailScreen />} />
         <Route path="/verification-status" element={<VerificationStatusScreen />} />
-        <Route path="*" element={<MatchApplication />} />
+        <Route path="*" element={<AuthenticatedMatchApplication />} />
       </Routes>
     </>
   )
