@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,8 +50,13 @@ public class RatingService {
             return;
         }
 
-        RatingSeasonEntity season = seasons.findFirstByActiveTrueOrderByStartsAtDesc()
+        RatingSeasonEntity season = seasons.findActiveForUpdate(PageRequest.of(0, 1)).stream()
+                .findFirst()
                 .orElseThrow(() -> new IllegalStateException("An active rating season is required"));
+        if (changes.existsByMatchId(match.matchId())) {
+            return;
+        }
+
         UUID playerOneId = accountId(match, PlayerSide.PLAYER_ONE);
         UUID playerTwoId = accountId(match, PlayerSide.PLAYER_TWO);
         Instant now = clock.instant();

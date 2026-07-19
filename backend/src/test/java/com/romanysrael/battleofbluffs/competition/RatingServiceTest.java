@@ -2,6 +2,7 @@ package com.romanysrael.battleofbluffs.competition;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
+import org.springframework.data.domain.Pageable;
 
 class RatingServiceTest {
     private static final Instant NOW = Instant.parse("2026-07-19T05:00:00Z");
@@ -44,6 +47,7 @@ class RatingServiceTest {
         when(season.getId()).thenReturn(seasonId);
         when(season.getName()).thenReturn("Season One");
         when(seasons.findFirstByActiveTrueOrderByStartsAtDesc()).thenReturn(Optional.of(season));
+        when(seasons.findActiveForUpdate(any(Pageable.class))).thenReturn(List.of(season));
         when(ratings.findByIdUserIdAndIdSeasonId(any(), any())).thenReturn(Optional.empty());
         service = new RatingService(
                 seasons,
@@ -86,7 +90,23 @@ class RatingServiceTest {
 
         service.apply(match);
 
-        verify(seasons, never()).findFirstByActiveTrueOrderByStartsAtDesc();
+        verify(seasons, never()).findActiveForUpdate(any(Pageable.class));
+        verify(ratings, never()).saveAll(any());
+        verify(changes, never()).saveAll(any());
+    }
+
+    @Test
+    void matchLedgerIsRecheckedAfterSeasonLockBeforeAnyRatingMutation() {
+        MatchSummary match = rankedResult(TerminalResult.win(
+                PlayerSide.PLAYER_TWO, TerminalReason.DISCONNECT_FORFEIT));
+        when(changes.existsByMatchId(match.matchId())).thenReturn(false, true);
+
+        service.apply(match);
+
+        InOrder lockThenLedger = inOrder(seasons, changes);
+        lockThenLedger.verify(changes).existsByMatchId(match.matchId());
+        lockThenLedger.verify(seasons).findActiveForUpdate(any(Pageable.class));
+        lockThenLedger.verify(changes).existsByMatchId(match.matchId());
         verify(ratings, never()).saveAll(any());
         verify(changes, never()).saveAll(any());
     }
