@@ -1,5 +1,6 @@
 package com.romanysrael.battleofbluffs.game.application;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.Locale;
 import java.util.UUID;
@@ -24,5 +25,10 @@ public class InMemoryMatchRepository implements MatchRepository {
         }
         UUID id = byCode.get(code.toUpperCase(Locale.ROOT));
         return id == null ? Optional.empty() : findById(id);
+    }
+
+    @Override
+    public Collection<PrivateMatch> findAll() {
+        return java.util.List.copyOf(byId.values());
     }
 }

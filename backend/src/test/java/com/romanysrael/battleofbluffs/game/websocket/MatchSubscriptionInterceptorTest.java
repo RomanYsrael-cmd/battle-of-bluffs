@@ -38,7 +38,8 @@ class MatchSubscriptionInterceptorTest {
         @SuppressWarnings("unchecked")
         ObjectProvider<MatchApplicationService> provider = mock(ObjectProvider.class);
         when(provider.getObject()).thenReturn(matches);
-        interceptor = new MatchSubscriptionInterceptor(provider);
+        interceptor = new MatchSubscriptionInterceptor(
+                provider, mock(MatchPresenceCoordinator.class));
     }
 
     @Test

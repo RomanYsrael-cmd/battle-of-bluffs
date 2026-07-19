@@ -62,6 +62,7 @@ export interface PlayerMatchView {
   matchId: string
   roomCode: string
   version: number
+  liveSequence: number
   phase: MatchPhase
   mode: 'CASUAL' | 'RANKED'
   timerMode: 'CASUAL_UNTIMED' | 'STANDARD_15_PLUS_5'
@@ -78,6 +79,29 @@ export interface PlayerMatchView {
   pendingFlagChallenge: PendingChallengeView | null
   terminalResult: TerminalResult | null
   postMatchPieces: RevealedPieceView[]
+  timer: TimerView
+  presence: PresenceView
+}
+
+export interface TimerView {
+  playerOneRemainingMillis: number
+  playerTwoRemainingMillis: number
+  formationDeadline: string | null
+  activeTurnDeadline: string | null
+  incrementMillis: number
+  serverTimestamp: string
+}
+
+export interface PresenceView {
+  playerOneConnected: boolean
+  playerTwoConnected: boolean
+  playerOneDisconnectedSince: string | null
+  playerTwoDisconnectedSince: string | null
+  playerOneCumulativeDisconnectedMillis: number
+  playerTwoCumulativeDisconnectedMillis: number
+  disconnectGraceMillis: number
+  rankedCumulativeAllowanceMillis: number
+  serverTimestamp: string
 }
 
 export interface CommandResponse {

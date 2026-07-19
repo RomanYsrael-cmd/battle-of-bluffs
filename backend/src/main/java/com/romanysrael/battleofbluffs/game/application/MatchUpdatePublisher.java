@@ -25,6 +25,9 @@ public interface MatchUpdatePublisher {
         MOVE_APPLIED,
         BATTLE_RESOLVED,
         FLAG_CHALLENGE_STARTED,
+        TIMER_SYNC,
+        PLAYER_CONNECTED,
+        PLAYER_DISCONNECTED,
         MATCH_ENDED
     }
 }

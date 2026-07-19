@@ -8,6 +8,7 @@ import com.romanysrael.battleofbluffs.game.persistence.MatchAggregateJpaReposito
 import jakarta.annotation.PostConstruct;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -92,6 +93,11 @@ public class PostgresMatchRepository implements MatchRepository {
         }
         UUID id = byCode.get(roomCode.toUpperCase(Locale.ROOT));
         return id == null ? Optional.empty() : findById(id);
+    }
+
+    @Override
+    public Collection<PrivateMatch> findAll() {
+        return java.util.List.copyOf(byId.values());
     }
 
     private void persistPlayers(PrivateMatch match, Instant now) {

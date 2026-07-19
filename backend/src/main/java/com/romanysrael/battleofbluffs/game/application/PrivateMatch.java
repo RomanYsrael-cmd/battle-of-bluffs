@@ -1,6 +1,7 @@
 package com.romanysrael.battleofbluffs.game.application;
 
 import com.romanysrael.battleofbluffs.game.domain.*;
+import java.time.Instant;
 import java.util.*;
 
 final class PrivateMatch {
@@ -15,9 +16,17 @@ final class PrivateMatch {
     final LinkedHashMap<UUID, StoredCommand> commands = new LinkedHashMap<>();
     final Map<String, Integer> repetitions = new HashMap<>();
     final Map<UUID, UUID> publicPieceIds = new HashMap<>();
+    final EnumMap<PlayerSide, Long> remainingMillis = new EnumMap<>(PlayerSide.class);
+    final EnumSet<PlayerSide> connected = EnumSet.noneOf(PlayerSide.class);
+    final EnumMap<PlayerSide, Instant> disconnectedSince = new EnumMap<>(PlayerSide.class);
+    final EnumMap<PlayerSide, Long> cumulativeDisconnectedMillis = new EnumMap<>(PlayerSide.class);
     long version = 1;
+    long liveSequence = 1;
     MatchState state;
     long nextEventSequence = 1;
+    Instant formationDeadline;
+    Instant turnStartedAt;
+    Instant turnDeadline;
 
     PrivateMatch(UUID id, String roomCode, String creator) {
         this(id, roomCode, creator, MatchMode.CASUAL, TimerMode.CASUAL_UNTIMED);

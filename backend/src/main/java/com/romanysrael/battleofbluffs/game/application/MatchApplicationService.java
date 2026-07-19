@@ -4,6 +4,8 @@ import static com.romanysrael.battleofbluffs.game.application.Commands.*;
 
 import com.romanysrael.battleofbluffs.game.domain.*;
 import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,20 +28,30 @@ public final class MatchApplicationService {
             Map.entry(Rank.PRIVATE, 6), Map.entry(Rank.SPY, 2), Map.entry(Rank.FLAG, 1));
     private final MatchRepository repository;
     private final PlayerMatchViewMapper mapper;
+    private final MatchTemporalService temporal;
     private MatchUpdatePublisher updatePublisher = update -> { };
     private final MoveValidator moveValidator = new MoveValidator();
     private final BattleResolver battleResolver = new BattleResolver();
     private final VictoryEvaluator victoryEvaluator = new VictoryEvaluator();
     private final SecureRandom random = new SecureRandom();
+    private Clock clock = Clock.systemUTC();
 
     public MatchApplicationService(MatchRepository repository, PlayerMatchViewMapper mapper) {
         this.repository = repository;
         this.mapper = mapper;
+        this.temporal = new MatchTemporalService(repository, mapper);
     }
 
     @Autowired(required = false)
     void setUpdatePublisher(MatchUpdatePublisher updatePublisher) {
         this.updatePublisher = updatePublisher;
+        this.temporal.setUpdatePublisher(updatePublisher);
+    }
+
+    @Autowired(required = false)
+    void setClock(Clock clock) {
+        this.clock = clock;
+        this.temporal.setClock(clock);
     }
 
     public MatchCommandResult createMatch(CreateMatchCommand command) {
@@ -66,6 +78,7 @@ public final class MatchApplicationService {
     public MatchCommandResult joinMatch(JoinMatchCommand command) {
         PrivateMatch match = byCode(command.roomCode());
         synchronized (match) {
+            Instant receivedAt = clock.instant();
             PrivateMatch.CommandFingerprint fingerprint = fingerprint("join",
                     canonicalRoomCode(command.roomCode()), nullable(command.playerId()),
                     Long.toString(command.expectedVersion()));
@@ -73,6 +86,7 @@ public final class MatchApplicationService {
             if (replay != null) {
                 return replay;
             }
+            temporal.ensureNotExpired(match, receivedAt);
             version(match, command.expectedVersion());
             String playerId = blank(command.playerId()) ? opaquePlayerId() : command.playerId();
             if (match.sideOf(playerId) != null) {
@@ -82,6 +96,7 @@ public final class MatchApplicationService {
                 throw error(MatchErrorCode.MATCH_FULL, "Match already has two players");
             }
             match.players.put(PlayerSide.PLAYER_TWO, playerId);
+            temporal.openFormation(match, receivedAt);
             match.version++;
             addEvent(match, PublicMatchEvent.Type.PLAYER_JOINED, PlayerSide.PLAYER_TWO,
                     null, null, null, null, null, List.of(), null);
@@ -102,11 +117,13 @@ public final class MatchApplicationService {
     public MatchCommandResult submitFormation(SubmitFormationCommand command) {
         PrivateMatch match = byId(command.matchId());
         synchronized (match) {
+            Instant receivedAt = clock.instant();
             PrivateMatch.CommandFingerprint fingerprint = formationFingerprint(command);
             MatchCommandResult replay = replay(match, command.commandId(), fingerprint);
             if (replay != null) {
                 return replay;
             }
+            temporal.ensureNotExpired(match, receivedAt);
             version(match, command.expectedVersion());
             PlayerSide side = member(match, command.playerId());
             ensureFormationPhase(match);
@@ -135,12 +152,14 @@ public final class MatchApplicationService {
     public MatchCommandResult lockFormation(LockFormationCommand command) {
         PrivateMatch match = byId(command.matchId());
         synchronized (match) {
+            Instant receivedAt = clock.instant();
             PrivateMatch.CommandFingerprint fingerprint = fingerprint("lock",
                     command.playerId(), Long.toString(command.expectedVersion()));
             MatchCommandResult replay = replay(match, command.commandId(), fingerprint);
             if (replay != null) {
                 return replay;
             }
+            temporal.ensureNotExpired(match, receivedAt);
             version(match, command.expectedVersion());
             PlayerSide side = member(match, command.playerId());
             ensureFormationPhase(match);
@@ -156,7 +175,7 @@ public final class MatchApplicationService {
             addEvent(match, PublicMatchEvent.Type.FORMATION_LOCKED, side,
                     null, null, null, null, null, List.of(), null);
             if (match.locked.size() == 2) {
-                start(match);
+                start(match, receivedAt);
             }
             MatchUpdatePublisher.UpdateType updateType = match.locked.size() == 2
                     ? MatchUpdatePublisher.UpdateType.MATCH_STARTED
@@ -168,6 +187,7 @@ public final class MatchApplicationService {
     public MatchCommandResult makeMove(MakeMoveCommand command) {
         PrivateMatch match = byId(command.matchId());
         synchronized (match) {
+            Instant receivedAt = clock.instant();
             PrivateMatch.CommandFingerprint fingerprint = fingerprint("move", command.playerId(),
                     Long.toString(command.expectedVersion()), position(command.source()),
                     position(command.destination()));
@@ -175,6 +195,7 @@ public final class MatchApplicationService {
             if (replay != null) {
                 return replay;
             }
+            temporal.ensureNotExpired(match, receivedAt);
             version(match, command.expectedVersion());
             PlayerSide side = member(match, command.playerId());
             if (match.state == null) {
@@ -193,7 +214,8 @@ public final class MatchApplicationService {
                     if (moveValidator.validate(ordinary, move).valid()) {
                         PendingFlagChallenge pending = match.state.pendingFlagChallenge().orElseThrow();
                         Piece flag = match.state.board().pieceById(pending.advancedFlagId()).orElseThrow();
-                        terminal(match, match.state.board(),
+                        temporal.freezeActiveClock(match, receivedAt);
+                        temporal.finish(match, match.state.board(),
                                 TerminalResult.win(flag.owner(), TerminalReason.FLAG_BACK_ROW),
                                 match.state.acceptedMoveCount());
                         match.version++;
@@ -206,7 +228,15 @@ public final class MatchApplicationService {
             if (!validation.valid()) {
                 throw error(MatchErrorCode.ILLEGAL_MOVE, validation.rejectionReason().name());
             }
+            long remainingBeforeIncrement = temporal.chargeAcceptedTurn(match, side, receivedAt);
             applyMove(match, move);
+            if (!match.state.isTerminal()
+                    && match.timerMode == TimerMode.STANDARD_15_PLUS_5) {
+                match.remainingMillis.put(
+                        side,
+                        remainingBeforeIncrement + MatchTimingRules.MOVE_INCREMENT.toMillis());
+                temporal.beginTurn(match, receivedAt);
+            }
             match.version++;
             return remember(match, command.commandId(), fingerprint, command.playerId(),
                     moveUpdateType(match));
@@ -216,12 +246,14 @@ public final class MatchApplicationService {
     public MatchCommandResult resign(ResignCommand command) {
         PrivateMatch match = byId(command.matchId());
         synchronized (match) {
+            Instant receivedAt = clock.instant();
             PrivateMatch.CommandFingerprint fingerprint = fingerprint("resign",
                     command.playerId(), Long.toString(command.expectedVersion()));
             MatchCommandResult replay = replay(match, command.commandId(), fingerprint);
             if (replay != null) {
                 return replay;
             }
+            temporal.ensureNotExpired(match, receivedAt);
             version(match, command.expectedVersion());
             PlayerSide side = member(match, command.playerId());
             if (match.state == null) {
@@ -231,9 +263,10 @@ public final class MatchApplicationService {
                 throw error(MatchErrorCode.TERMINAL_MATCH, "Match is terminal");
             }
             TerminalResult result = TerminalResult.win(side.opponent(), TerminalReason.RESIGNATION);
+            temporal.freezeActiveClock(match, receivedAt);
             addEvent(match, PublicMatchEvent.Type.PLAYER_RESIGNED, side,
                     null, null, null, null, null, List.of(), result);
-            terminal(match, match.state.board(), result, match.state.acceptedMoveCount());
+            temporal.finish(match, match.state.board(), result, match.state.acceptedMoveCount());
             match.version++;
             return remember(match, command.commandId(), fingerprint, command.playerId(),
                     MatchUpdatePublisher.UpdateType.MATCH_ENDED);
@@ -243,6 +276,7 @@ public final class MatchApplicationService {
     public PlayerMatchView getView(UUID matchId, String playerId) {
         PrivateMatch match = byId(matchId);
         synchronized (match) {
+            temporal.evaluateDeadlines(match, clock.instant());
             return mapper.map(match, playerId);
         }
     }
@@ -250,6 +284,7 @@ public final class MatchApplicationService {
     public PlayerMatchView getViewByRoomCode(String code, String playerId) {
         PrivateMatch match = byCode(code);
         synchronized (match) {
+            temporal.evaluateDeadlines(match, clock.instant());
             return mapper.map(match, playerId);
         }
     }
@@ -310,7 +345,7 @@ public final class MatchApplicationService {
                     board, movedPiece, acceptedMoveCount, occurrences);
         }
         if (evaluation.result().isPresent()) {
-            terminal(match, board, evaluation.result().orElseThrow(), acceptedMoveCount);
+            temporal.finish(match, board, evaluation.result().orElseThrow(), acceptedMoveCount);
             return;
         }
 
@@ -323,27 +358,21 @@ public final class MatchApplicationService {
                 board, move.actingPlayer().opponent(), acceptedMoveCount, challenge, occurrences);
         VictoryEvaluation turnStart = victoryEvaluator.atTurnStart(match.state, moveValidator);
         if (turnStart.result().isPresent()) {
-            terminal(match, board, turnStart.result().orElseThrow(), acceptedMoveCount);
+            temporal.finish(match, board, turnStart.result().orElseThrow(), acceptedMoveCount);
         }
     }
 
-    private void start(PrivateMatch match) {
+    private void start(PrivateMatch match, Instant now) {
         List<Piece> allPieces = new ArrayList<>();
         match.formations.values().forEach(allPieces::addAll);
         PlayerSide firstPlayer = random.nextBoolean()
                 ? PlayerSide.PLAYER_ONE
                 : PlayerSide.PLAYER_TWO;
         match.state = MatchState.active(new Board(allPieces), firstPlayer);
+        temporal.startPlay(match, now);
         recordPosition(match, match.state.board(), firstPlayer, null);
         addEvent(match, PublicMatchEvent.Type.MATCH_STARTED, firstPlayer,
                 null, null, null, null, null, List.of(), null);
-    }
-
-    private void terminal(
-            PrivateMatch match, Board board, TerminalResult result, int acceptedMoveCount) {
-        match.state = MatchState.terminal(board, result, acceptedMoveCount);
-        addEvent(match, PublicMatchEvent.Type.MATCH_ENDED, result.winner(),
-                null, null, null, null, null, List.of(), result);
     }
 
     private int recordPosition(
@@ -491,6 +520,26 @@ public final class MatchApplicationService {
         return new PrivateMatch.CommandFingerprint(operation, List.of(components));
     }
 
+    public void playerConnected(UUID matchId, String playerId) {
+        temporal.playerConnected(matchId, playerId);
+    }
+
+    public void playerDisconnected(UUID matchId, String playerId) {
+        temporal.playerDisconnected(matchId, playerId);
+    }
+
+    public void evaluateAllDeadlines() {
+        temporal.evaluateAllDeadlines();
+    }
+
+    public void publishTimerSyncs() {
+        temporal.publishTimerSyncs();
+    }
+
+    public void recoverAfterRestart() {
+        temporal.recoverAfterRestart();
+    }
+
     private MatchCommandResult remember(
             PrivateMatch match, UUID commandId, PrivateMatch.CommandFingerprint fingerprint,
             String playerId, MatchUpdatePublisher.UpdateType updateType) {
@@ -500,6 +549,7 @@ public final class MatchApplicationService {
         while (match.commands.size() > COMMAND_HISTORY_LIMIT) {
             match.commands.remove(match.commands.keySet().iterator().next());
         }
+        match.liveSequence++;
         repository.save(match);
         publishUpdate(match, updateType);
         return result;
@@ -523,8 +573,8 @@ public final class MatchApplicationService {
         match.players.values().forEach(playerId ->
                 playerViews.put(playerId, mapper.map(match, playerId)));
         try {
-            updatePublisher.publish(new MatchUpdatePublisher.MatchUpdate(
-                    match.id, match.version, updateType, playerViews));
+        updatePublisher.publish(new MatchUpdatePublisher.MatchUpdate(
+                    match.id, match.liveSequence, updateType, playerViews));
         } catch (RuntimeException exception) {
             LOGGER.warn(
                     "Match {} version {} was persisted but its live update could not be published",

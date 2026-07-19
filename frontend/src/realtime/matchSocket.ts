@@ -20,12 +20,16 @@ export type MatchUpdateDecision = 'IGNORE' | 'APPLY' | 'REFETCH'
 
 export function assessMatchUpdate(
   matchId: string,
+  currentLiveSequence: number,
   currentVersion: number,
   update: MatchUpdateEnvelope,
 ): MatchUpdateDecision {
-  if (update.matchId !== matchId || update.version !== update.sequence) return 'REFETCH'
-  if (update.sequence <= currentVersion) return 'IGNORE'
-  if (update.sequence !== currentVersion + 1) return 'REFETCH'
+  if (update.matchId !== matchId
+    || update.version !== update.view.version
+    || update.sequence !== update.view.liveSequence) return 'REFETCH'
+  if (update.sequence <= currentLiveSequence) return 'IGNORE'
+  if (update.sequence !== currentLiveSequence + 1) return 'REFETCH'
+  if (update.version < currentVersion || update.version > currentVersion + 1) return 'REFETCH'
   return 'APPLY'
 }
 
@@ -53,17 +57,20 @@ export function connectMatchUpdates(
   let connectedBefore = false
   let stopped = false
   client.onConnect = () => {
+    const receiptId = `match-subscription-${crypto.randomUUID()}`
+    client.watchForReceipt(receiptId, () => {
+      if (stopped) return
+      callbacks.onState(connectedBefore ? 'RECOVERING' : 'SYNCHRONIZED')
+      connectedBefore = true
+      callbacks.onConnected()
+    })
     client.subscribe(`/user/queue/matches/${matchId}`, (message: IMessage) => {
       try {
         callbacks.onUpdate(JSON.parse(message.body) as MatchUpdateEnvelope)
       } catch {
         callbacks.onInvalidMessage()
       }
-    })
-    if (stopped) return
-    callbacks.onState(connectedBefore ? 'RECOVERING' : 'SYNCHRONIZED')
-    connectedBefore = true
-    callbacks.onConnected()
+    }, { receipt: receiptId })
   }
   const reconnecting = () => {
     if (!stopped) callbacks.onState('RECONNECTING')

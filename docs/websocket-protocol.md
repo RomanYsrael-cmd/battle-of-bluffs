@@ -48,8 +48,8 @@ Current match update types are:
 - `FLAG_CHALLENGE_STARTED`
 - `MATCH_ENDED`
 
-`sequence` is the accepted authoritative match version. Exact command retries are replayed without publishing another update. Each accepted version is published only after its PostgreSQL save returns.
+`sequence` is the persisted `liveSequence`, while `version` is the authoritative command/state version. They normally advance together, but a periodic `TIMER_SYNC` advances only `liveSequence`. Exact command retries are replayed without publishing another update. Each state update is published only after its PostgreSQL save returns.
 
 ## Recovery
 
-The frontend refetches `GET /api/matches/{matchId}` after every connection or reconnection. It applies only the immediately following sequence, ignores duplicate or delayed sequences, and performs another full safe REST refetch for a gap, wrong match ID, inconsistent version, or invalid message. Normal 1.5-second polling is disabled while synchronized. A 15-second fallback refetch runs only while connecting, disconnected, or recovering.
+The frontend waits for the STOMP subscription receipt, then refetches `GET /api/matches/{matchId}` after every connection or reconnection. It applies only the immediately following live sequence, ignores duplicate or delayed sequences, and performs another full safe REST refetch for a gap, wrong match ID, inconsistent version, or invalid message. Normal 1.5-second polling is disabled while synchronized. A 15-second fallback refetch runs only while connecting, disconnected, or recovering.

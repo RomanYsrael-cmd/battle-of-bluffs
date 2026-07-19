@@ -9,6 +9,7 @@ import com.romanysrael.battleofbluffs.game.domain.PlayerSide;
 import com.romanysrael.battleofbluffs.game.domain.Position;
 import com.romanysrael.battleofbluffs.game.domain.Rank;
 import com.romanysrael.battleofbluffs.game.domain.TerminalResult;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
@@ -43,7 +44,15 @@ public final class MatchSnapshotCodec {
                 commands(match.commands),
                 Map.copyOf(match.repetitions),
                 Map.copyOf(match.publicPieceIds),
-                state(match.state));
+                state(match.state),
+                match.liveSequence,
+                Map.copyOf(match.remainingMillis),
+                Set.copyOf(match.connected),
+                Map.copyOf(match.disconnectedSince),
+                Map.copyOf(match.cumulativeDisconnectedMillis),
+                match.formationDeadline,
+                match.turnStartedAt,
+                match.turnDeadline);
         return write(snapshot);
     }
 
@@ -58,6 +67,9 @@ public final class MatchSnapshotCodec {
             PrivateMatch match = new PrivateMatch(
                     snapshot.id(), snapshot.roomCode(), creator, mode, timerMode);
             match.version = snapshot.version();
+            match.liveSequence = snapshot.liveSequence() != null && snapshot.liveSequence() > 0
+                    ? snapshot.liveSequence()
+                    : snapshot.version();
             match.nextEventSequence = snapshot.nextEventSequence();
             match.players.clear();
             match.players.putAll(snapshot.players());
@@ -74,6 +86,22 @@ public final class MatchSnapshotCodec {
             match.repetitions.putAll(snapshot.repetitions());
             match.publicPieceIds.putAll(snapshot.publicPieceIds());
             match.state = restoreState(snapshot.state());
+            if (snapshot.remainingMillis() != null) {
+                match.remainingMillis.putAll(snapshot.remainingMillis());
+            }
+            if (snapshot.connected() != null) {
+                match.connected.addAll(snapshot.connected());
+            }
+            if (snapshot.disconnectedSince() != null) {
+                match.disconnectedSince.putAll(snapshot.disconnectedSince());
+            }
+            if (snapshot.cumulativeDisconnectedMillis() != null) {
+                match.cumulativeDisconnectedMillis.putAll(
+                        snapshot.cumulativeDisconnectedMillis());
+            }
+            match.formationDeadline = snapshot.formationDeadline();
+            match.turnStartedAt = snapshot.turnStartedAt();
+            match.turnDeadline = snapshot.turnDeadline();
             return match;
         } catch (JacksonException exception) {
             throw new IllegalStateException("Persisted match snapshot is invalid", exception);
@@ -170,7 +198,15 @@ public final class MatchSnapshotCodec {
             List<StoredCommandData> commands,
             Map<String, Integer> repetitions,
             Map<UUID, UUID> publicPieceIds,
-            StateData state) { }
+            StateData state,
+            Long liveSequence,
+            Map<PlayerSide, Long> remainingMillis,
+            Set<PlayerSide> connected,
+            Map<PlayerSide, Instant> disconnectedSince,
+            Map<PlayerSide, Long> cumulativeDisconnectedMillis,
+            Instant formationDeadline,
+            Instant turnStartedAt,
+            Instant turnDeadline) { }
 
     public record PieceData(UUID id, PlayerSide owner, Rank rank, Position position) { }
 

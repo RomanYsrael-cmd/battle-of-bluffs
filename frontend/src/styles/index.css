@@ -125,6 +125,12 @@ h2 { font-size: 1.65rem; }
 .connection-state { margin: .5rem 0; color: #8f9aa7; font-size: .8rem; }
 .connection-state--synchronized { color: #78b894; }
 .connection-state--reconnecting, .connection-state--recovering { color: #d9ad67; }
+.match-timing { display: grid; gap: .65rem; margin: .6rem 0 1rem; }
+.setup-clock, .play-clock { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; border: 1px solid #4a4032; border-radius: .55rem; background: #15120e; padding: .65rem .8rem; color: #b9ad9b; }
+.setup-clock strong, .play-clock strong { color: #f1d99f; font-variant-numeric: tabular-nums; font-size: 1.15rem; }
+.play-clocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+.play-clock--active { border-color: #d09b46; box-shadow: 0 0 0 1px #d09b4633; }
+.opponent-disconnected { margin: 0; border-left: 3px solid #d07046; background: #2b1914; color: #efb28f; padding: .7rem .85rem; }
 .opponent-status { color: #a69b88; font-size: .8rem; }
 .match-workspace { display: grid; grid-template-columns: minmax(600px, 1.4fr) minmax(280px, .6fr); gap: 1.2rem; align-items: start; }
 .history-panel { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; }

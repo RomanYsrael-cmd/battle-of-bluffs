@@ -1,11 +1,22 @@
 package com.romanysrael.battleofbluffs.game.application;
 
 import com.romanysrael.battleofbluffs.game.domain.*;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public final class PlayerMatchViewMapper {
+    private Clock clock = Clock.systemUTC();
+
+    @Autowired(required = false)
+    void setClock(Clock clock) {
+        this.clock = clock;
+    }
+
     public PlayerMatchView map(PrivateMatch match, String playerId) {
         PlayerSide side = match.sideOf(playerId);
         if (side == null) {
@@ -41,13 +52,63 @@ public final class PlayerMatchViewMapper {
                 idForViewer(match, piecesById.get(pending.advancedFlagId()), side),
                 pending.flagPosition(), pending.respondingPlayer(),
                 pending.respondingPlayer() == side ? pending.eligibleChallengerIds() : Set.of());
-        return new PlayerMatchView(match.id, match.roomCode, match.version,
+        Instant now = clock.instant();
+        return new PlayerMatchView(match.id, match.roomCode, match.version, match.liveSequence,
                 match.state == null ? MatchPhase.FORMATION : match.state.phase(),
                 match.mode, match.timerMode, playerId, side,
                 match.players.containsKey(PlayerSide.PLAYER_ONE), match.players.containsKey(PlayerSide.PLAYER_TWO),
                 match.locked.contains(PlayerSide.PLAYER_ONE), match.locked.contains(PlayerSide.PLAYER_TWO),
                 match.state == null ? null : match.state.currentPlayer().orElse(null), own, opponent, events, challenge,
-                match.state == null ? null : match.state.terminalResult().orElse(null), revealed);
+                match.state == null ? null : match.state.terminalResult().orElse(null), revealed,
+                timer(match, now), presence(match, now));
+    }
+
+    private PlayerMatchView.TimerView timer(PrivateMatch match, Instant now) {
+        return new PlayerMatchView.TimerView(
+                remaining(match, PlayerSide.PLAYER_ONE, now),
+                remaining(match, PlayerSide.PLAYER_TWO, now),
+                match.formationDeadline,
+                match.turnDeadline,
+                match.timerMode == TimerMode.STANDARD_15_PLUS_5
+                        ? MatchTimingRules.MOVE_INCREMENT.toMillis()
+                        : 0,
+                now);
+    }
+
+    private long remaining(PrivateMatch match, PlayerSide side, Instant now) {
+        long stored = match.remainingMillis.getOrDefault(side, 0L);
+        if (match.timerMode != TimerMode.STANDARD_15_PLUS_5
+                || match.state == null
+                || match.state.isTerminal()
+                || match.state.currentPlayer().orElse(null) != side
+                || match.turnStartedAt == null) {
+            return stored;
+        }
+        long elapsed = Math.max(0, Duration.between(match.turnStartedAt, now).toMillis());
+        return Math.max(0, stored - elapsed);
+    }
+
+    private PlayerMatchView.PresenceView presence(PrivateMatch match, Instant now) {
+        return new PlayerMatchView.PresenceView(
+                match.connected.contains(PlayerSide.PLAYER_ONE),
+                match.connected.contains(PlayerSide.PLAYER_TWO),
+                match.disconnectedSince.get(PlayerSide.PLAYER_ONE),
+                match.disconnectedSince.get(PlayerSide.PLAYER_TWO),
+                cumulativeDisconnected(match, PlayerSide.PLAYER_ONE, now),
+                cumulativeDisconnected(match, PlayerSide.PLAYER_TWO, now),
+                MatchTimingRules.DISCONNECT_GRACE.toMillis(),
+                match.mode == MatchMode.RANKED
+                        ? MatchTimingRules.RANKED_CUMULATIVE_DISCONNECT_LIMIT.toMillis()
+                        : 0,
+                now);
+    }
+
+    private long cumulativeDisconnected(PrivateMatch match, PlayerSide side, Instant now) {
+        long accumulated = match.cumulativeDisconnectedMillis.getOrDefault(side, 0L);
+        Instant disconnectedAt = match.disconnectedSince.get(side);
+        return disconnectedAt == null
+                ? accumulated
+                : accumulated + Math.max(0, Duration.between(disconnectedAt, now).toMillis());
     }
 
     private PlayerMatchView.EventView eventFor(

@@ -26,6 +26,7 @@ class MatchUpdateEnvelopeSerializationTest {
                 matchId,
                 "ABC234",
                 2,
+                2,
                 MatchPhase.FORMATION,
                 MatchMode.CASUAL,
                 TimerMode.CASUAL_UNTIMED,
@@ -41,7 +42,9 @@ class MatchUpdateEnvelopeSerializationTest {
                 List.of(),
                 null,
                 null,
-                List.of());
+                List.of(),
+                null,
+                null);
         MatchUpdateEnvelope envelope = new MatchUpdateEnvelope(
                 UpdateType.PLAYER_JOINED,
                 matchId,

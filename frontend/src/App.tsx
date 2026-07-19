@@ -22,6 +22,7 @@ import { FormationScreen } from './features/formation/FormationScreen'
 import { HomeScreen } from './features/home/HomeScreen'
 import { ActiveMatchScreen } from './features/match/ActiveMatchScreen'
 import { MatchHeader } from './features/match/MatchHeader'
+import { MatchTimers } from './features/match/MatchTimers'
 import {
   clearSession,
   loadSession,
@@ -75,7 +76,12 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
           refetchSafeView()
           return
         }
-        const decision = assessMatchUpdate(session.matchId, current.version, update)
+        const decision = assessMatchUpdate(
+          session.matchId,
+          current.liveSequence,
+          current.version,
+          update,
+        )
         if (decision === 'APPLY') {
           queryClient.setQueryData(matchQueryKey(session), update.view)
           setConnectionState('SYNCHRONIZED')
@@ -125,6 +131,7 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
   return (
     <main className="app-shell">
       <MatchHeader view={query.data} onLeave={onLeave} />
+      <MatchTimers view={query.data} />
       <p className={`connection-state connection-state--${connectionState.toLowerCase()}`} role="status">
         {connectionLabel(connectionState)}
       </p>

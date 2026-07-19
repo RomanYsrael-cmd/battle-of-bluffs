@@ -22,9 +22,13 @@ public final class MatchSubscriptionInterceptor implements ChannelInterceptor {
             "^/user/queue/matches/([0-9a-fA-F-]{36})$");
 
     private final ObjectProvider<MatchApplicationService> matches;
+    private final MatchPresenceCoordinator presence;
 
-    public MatchSubscriptionInterceptor(ObjectProvider<MatchApplicationService> matches) {
+    public MatchSubscriptionInterceptor(
+            ObjectProvider<MatchApplicationService> matches,
+            MatchPresenceCoordinator presence) {
         this.matches = matches;
+        this.presence = presence;
     }
 
     @Override
@@ -59,6 +63,11 @@ public final class MatchSubscriptionInterceptor implements ChannelInterceptor {
         } catch (MatchApplicationException exception) {
             throw new AccessDeniedException("WebSocket subscription is not allowed", exception);
         }
+        String sessionId = accessor.getSessionId();
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new AccessDeniedException("WebSocket session is required");
+        }
+        presence.subscribed(matchId, principal.userId().toString(), sessionId);
         return message;
     }
 

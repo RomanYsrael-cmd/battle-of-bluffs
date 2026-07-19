@@ -19,6 +19,7 @@ export const matchView = (overrides: Partial<PlayerMatchView> = {}): PlayerMatch
   matchId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   roomCode: 'ABC234',
   version: 1,
+  liveSequence: 1,
   phase: 'FORMATION',
   mode: 'CASUAL',
   timerMode: 'CASUAL_UNTIMED',
@@ -35,6 +36,25 @@ export const matchView = (overrides: Partial<PlayerMatchView> = {}): PlayerMatch
   pendingFlagChallenge: null,
   terminalResult: null,
   postMatchPieces: [],
+  timer: {
+    playerOneRemainingMillis: 0,
+    playerTwoRemainingMillis: 0,
+    formationDeadline: null,
+    activeTurnDeadline: null,
+    incrementMillis: 0,
+    serverTimestamp: '2026-07-19T10:00:00Z',
+  },
+  presence: {
+    playerOneConnected: true,
+    playerTwoConnected: true,
+    playerOneDisconnectedSince: null,
+    playerTwoDisconnectedSince: null,
+    playerOneCumulativeDisconnectedMillis: 0,
+    playerTwoCumulativeDisconnectedMillis: 0,
+    disconnectGraceMillis: 60_000,
+    rankedCumulativeAllowanceMillis: 0,
+    serverTimestamp: '2026-07-19T10:00:00Z',
+  },
   ...overrides,
 })
 

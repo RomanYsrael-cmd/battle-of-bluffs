@@ -110,6 +110,7 @@ class WebSocketMatchUpdatePublisherTest {
                 matchId,
                 "ROOM42",
                 8,
+                8,
                 MatchPhase.ACTIVE,
                 MatchMode.CASUAL,
                 TimerMode.CASUAL_UNTIMED,
@@ -127,6 +128,8 @@ class WebSocketMatchUpdatePublisherTest {
                 List.of(),
                 null,
                 null,
-                List.of());
+                List.of(),
+                null,
+                null);
     }
 }

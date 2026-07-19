@@ -56,6 +56,19 @@ class MatchSnapshotCodecTest {
         assertEquals(joinId, replayedJoin.commandId());
     }
 
+    @Test
+    void olderSnapshotWithoutLiveSequenceFallsBackToAggregateVersion() {
+        InMemoryMatchRepository repository = new InMemoryMatchRepository();
+        MatchApplicationService service = new MatchApplicationService(repository, mapper);
+        MatchCommandResult created = service.createMatch(new CreateMatchCommand("legacy-player"));
+        String encoded = codec.encode(repository.findById(created.view().matchId()).orElseThrow());
+        String legacyEncoded = encoded.replace("\"liveSequence\":1,", "");
+
+        PrivateMatch restored = codec.decode(legacyEncoded);
+
+        assertEquals(restored.version, restored.liveSequence);
+    }
+
     private static List<FormationPiece> formation(PlayerSide side) {
         List<Rank> ranks = new ArrayList<>(List.of(
                 Rank.FIVE_STAR_GENERAL, Rank.FOUR_STAR_GENERAL,
