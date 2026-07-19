@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext, type Page } from '@playwright/test'
+import { expect, test, type BrowserContext, type Page, type Response } from '@playwright/test'
 
 const runId = process.env.E2E_RUN_ID
   ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
@@ -143,11 +143,13 @@ test.describe.serial('complete local platform', () => {
       const secondPage = await second.newPage()
       await Promise.all([firstPage.goto('/'), secondPage.goto('/')])
       await Promise.all([
-        firstPage.getByRole('button', { name: 'Find ranked match' }).click(),
-        secondPage.getByRole('button', { name: 'Find ranked match' }).click(),
+        enterRankedQueue(firstPage),
+        enterRankedQueue(secondPage),
       ])
-      await expect(firstPage.getByText('Ranked match')).toBeVisible()
-      await expect(secondPage.getByText('Ranked match')).toBeVisible()
+      await expect(firstPage.getByText('Ranked match', { exact: true }))
+        .toBeVisible({ timeout: 45_000 })
+      await expect(secondPage.getByText('Ranked match', { exact: true }))
+        .toBeVisible({ timeout: 45_000 })
 
       await prepareBothArmies(firstPage, secondPage)
       await makeOneLegalMove(firstPage, secondPage)
@@ -207,6 +209,14 @@ test.describe.serial('complete local platform', () => {
     }
   })
 })
+
+async function enterRankedQueue(page: Page) {
+  try {
+    await page.getByRole('button', { name: 'Find ranked match' }).click()
+  } catch (error) {
+    if (!await page.getByText('Ranked match', { exact: true }).isVisible()) throw error
+  }
+}
 
 async function registerVerifyAndLogin(
   context: BrowserContext,
@@ -281,15 +291,153 @@ async function createAndJoinPrivateRoom(firstPage: Page, secondPage: Page): Prom
 
 async function prepareBothArmies(firstPage: Page, secondPage: Page) {
   await Promise.all([deployFormation(firstPage), deployFormation(secondPage)])
-  await firstPage.getByRole('button', { name: 'Submit formation' }).click()
-  await expect(firstPage.getByRole('button', { name: 'Formation submitted' })).toBeEnabled()
-  await secondPage.getByRole('button', { name: 'Submit formation' }).click()
-  await expect(secondPage.getByRole('button', { name: 'Formation submitted' })).toBeEnabled()
-  await firstPage.getByRole('button', { name: 'Lock formation' }).click()
-  await expect(firstPage.getByText(/Server-confirmed lock/)).toBeVisible()
-  await secondPage.getByRole('button', { name: 'Lock formation' }).click()
+  await submitAndLockFormation(firstPage)
+  await submitAndLockFormation(secondPage)
   await expect(firstPage.getByRole('heading', { name: /Your turn|Opponent’s turn/ })).toBeVisible()
   await expect(secondPage.getByRole('heading', { name: /Your turn|Opponent’s turn/ })).toBeVisible()
+}
+
+interface FormationSafeState {
+  status: number
+  code?: string
+  version?: number
+  phase?: string
+  ownPieceCount?: number
+  ownLocked?: boolean
+  opponentRankExposed?: boolean
+}
+
+async function submitAndLockFormation(page: Page) {
+  await expect(page.getByText('Live updates synchronized')).toBeVisible()
+  const submittedVersion = await displayedMatchVersion(page)
+  const matchId = await activeMatchId(page)
+  const formationResponses: Response[] = []
+  const observeFormationResponses = (response: Response) => {
+    const pathname = new URL(response.url()).pathname
+    if (pathname.endsWith('/formation') || pathname.endsWith('/lock')) {
+      formationResponses.push(response)
+    }
+  }
+  page.on('response', observeFormationResponses)
+
+  try {
+    await page.getByRole('button', { name: 'Submit formation' }).click()
+    try {
+      await expect.poll(
+        () => readFormationSafeState(page, matchId),
+        { message: 'formation submission must be confirmed by the authenticated safe view' },
+      ).toMatchObject({
+        status: 200,
+        phase: 'FORMATION',
+        ownPieceCount: 21,
+        ownLocked: false,
+        opponentRankExposed: false,
+      })
+      await expect.poll(() => readSafeVersion(page, matchId), {
+        message: `formation version must advance beyond submitted version ${submittedVersion}`,
+      }).toBeGreaterThan(submittedVersion)
+    } catch (error) {
+      throw await formationDiagnostic(
+        page,
+        matchId,
+        submittedVersion,
+        formationResponses,
+        'submission',
+        error,
+      )
+    }
+
+    await expect(page.getByRole('button', { name: 'Formation submitted' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Reset formation' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Lock formation' })).toBeEnabled()
+
+    const versionBeforeLock = await readSafeVersion(page, matchId)
+    await page.getByRole('button', { name: 'Lock formation' }).click()
+    try {
+      await expect.poll(
+        () => readFormationSafeState(page, matchId),
+        { message: 'formation lock must be confirmed by the authenticated safe view' },
+      ).toMatchObject({
+        status: 200,
+        ownPieceCount: 21,
+        ownLocked: true,
+        opponentRankExposed: false,
+      })
+      await expect.poll(() => readSafeVersion(page, matchId), {
+        message: `lock version must advance beyond ${versionBeforeLock}`,
+      }).toBeGreaterThan(versionBeforeLock)
+    } catch (error) {
+      throw await formationDiagnostic(
+        page,
+        matchId,
+        versionBeforeLock,
+        formationResponses,
+        'lock',
+        error,
+      )
+    }
+  } finally {
+    page.off('response', observeFormationResponses)
+  }
+}
+
+async function readFormationSafeState(page: Page, matchId: string): Promise<FormationSafeState> {
+  const response = await page.request.get(`/api/matches/${matchId}`)
+  const body = await response.json().catch(() => ({})) as {
+    code?: string
+    version?: number
+    phase?: string
+    requestingSide?: 'PLAYER_ONE' | 'PLAYER_TWO'
+    playerOneLocked?: boolean
+    playerTwoLocked?: boolean
+    ownPieces?: unknown[]
+    opponentPieces?: Record<string, unknown>[]
+  }
+  const ownLocked = body.requestingSide === 'PLAYER_ONE'
+    ? body.playerOneLocked
+    : body.playerTwoLocked
+  return {
+    status: response.status(),
+    code: body.code,
+    version: body.version,
+    phase: body.phase,
+    ownPieceCount: body.ownPieces?.length,
+    ownLocked,
+    opponentRankExposed: body.opponentPieces?.some((piece) => 'rank' in piece) ?? false,
+  }
+}
+
+async function readSafeVersion(page: Page, matchId: string): Promise<number> {
+  const state = await readFormationSafeState(page, matchId)
+  return state.version ?? -1
+}
+
+async function formationDiagnostic(
+  page: Page,
+  matchId: string,
+  submittedVersion: number,
+  responses: Response[],
+  action: 'submission' | 'lock',
+  cause: unknown,
+): Promise<Error> {
+  const relevantResponse = responses.at(-1)
+  const responseBody = relevantResponse
+    ? await relevantResponse.json().catch(() => ({})) as { code?: string; message?: string }
+    : {}
+  const refreshed = await readFormationSafeState(page, matchId)
+    .catch((): FormationSafeState => ({ status: 0 }))
+  const visibleErrors = await page.getByRole('alert').allTextContents()
+  const syncMessages = await page.locator('.sync-message').allTextContents()
+  return new Error([
+    `Formation ${action} did not recover`,
+    `response status ${relevantResponse?.status() ?? '<none>'}`,
+    `response code ${responseBody.code ?? '<none>'}`,
+    `submitted version ${submittedVersion}`,
+    `refreshed version ${refreshed.version ?? '<unavailable>'}`,
+    visibleErrors.length > 0 ? `visible error: ${visibleErrors.join(' | ')}` : 'visible error: <none>',
+    syncMessages.length > 0 ? `sync state: ${syncMessages.join(' | ')}` : 'sync state: <none>',
+    `cause: ${cause instanceof Error ? cause.message : String(cause)}`,
+  ].join(' — '))
 }
 
 async function deployFormation(page: Page) {
@@ -399,7 +547,7 @@ async function makeOneLegalMove(firstPage: Page, secondPage: Page) {
 }
 
 async function displayedMatchVersion(page: Page): Promise<number> {
-  const status = await page.locator('.status-pill').textContent()
+  const status = await page.locator('.match-header').getByText(/^Version \d+$/).textContent()
   const version = status?.match(/version\s+(\d+)/i)?.[1]
   if (!version) throw new Error(`Could not read match version from status: ${status ?? '<missing>'}`)
   return Number(version)

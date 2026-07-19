@@ -50,4 +50,6 @@ Connection state, disconnect start times and accumulated durations are persisted
 
 ## Versions and live sequence
 
-`version` changes for authoritative match state, including presence and terminal transitions. `liveSequence` orders every pushed update, including timer synchronizations that do not create a new command version. Both are persisted. Clients accept only the next live sequence, ignore duplicate delivery and recover a gap through safe REST refetch.
+`version` is the optimistic-concurrency version for authoritative game and lifecycle commands. It advances for accepted operations whose ordering affects gameplay, such as joining a seat, formation submission and locking, moves, resignation, cancellation, leaving, and terminal deadline outcomes. Presence-only connection and disconnection updates do not invalidate a command that was prepared from the current gameplay version.
+
+`liveSequence` orders every player-visible pushed update. It advances for authoritative commands and also for persisted presence changes and timer synchronization. PostgreSQL's internal persistence version remains separate from both public values, so presence is still restart-safe without weakening command conflict detection. Clients accept only the next live sequence, ignore duplicate delivery and recover a gap through safe REST refetch.

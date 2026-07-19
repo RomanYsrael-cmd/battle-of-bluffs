@@ -37,7 +37,7 @@ Every `SUBSCRIBE` frame is authorized on the server by loading that authenticate
 
 `view` is generated separately for each participant. During an active match, opponent pieces contain only their stable opaque public ID and position. The message never contains the opponent's rank or authoritative piece ID.
 
-Current match update types are:
+Current match update types include:
 
 - `PLAYER_JOINED`
 - `FORMATION_SUBMITTED`
@@ -47,8 +47,11 @@ Current match update types are:
 - `BATTLE_RESOLVED`
 - `FLAG_CHALLENGE_STARTED`
 - `MATCH_ENDED`
+- `PLAYER_CONNECTED`
+- `PLAYER_DISCONNECTED`
+- `TIMER_SYNC`
 
-`sequence` is the persisted `liveSequence`, while `version` is the authoritative command/state version. They normally advance together, but a periodic `TIMER_SYNC` advances only `liveSequence`. Exact command retries are replayed without publishing another update. Each state update is published only after its PostgreSQL save returns.
+`sequence` is the persisted `liveSequence`, while `version` is the optimistic-concurrency version for authoritative game and lifecycle commands. Accepted commands and terminal outcomes advance both. Presence-only connection/disconnection updates and periodic `TIMER_SYNC` updates advance only `liveSequence`; they remain persisted through PostgreSQL's separate internal persistence version. Exact command retries are replayed without publishing another update. Each state update is published only after its PostgreSQL save returns.
 
 ## Recovery
 

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { lockFormation, MatchApiError, submitFormation } from '../../api/client'
+import { lockFormation, submitFormation } from '../../api/client'
+import { executeWithOneStaleRetry } from '../../api/staleCommand'
 import type { CommandResponse, FormationItem, PlayerMatchView } from '../../api/types'
 import { ApiErrorNotice } from '../../components/ApiErrorNotice'
 import { Board } from '../../components/Board/Board'
@@ -28,7 +29,7 @@ interface FormationScreenProps {
   view: PlayerMatchView
   session: MatchSession
   onView: (response: CommandResponse) => void
-  onStale: () => void
+  onStale: () => Promise<PlayerMatchView>
 }
 
 export function FormationScreen({ view, session, onView, onStale }: FormationScreenProps) {
@@ -44,31 +45,68 @@ export function FormationScreen({ view, session, onView, onStale }: FormationScr
   const initialPieces = useMemo(() => view.ownPieces, [])
   const formation = useFormation(view.requestingSide, ownLocked, initialPieces)
   const currentSignature = placementSignature(formation.placements)
+  const currentSignatureRef = useRef(currentSignature)
+  currentSignatureRef.current = currentSignature
   const [submittedSignature, setSubmittedSignature] = useState(
     view.ownPieces.length === FORMATION_PIECE_COUNT ? currentSignature : '',
   )
+  const submittedAttemptSignature = useRef('')
 
-  const handleError = (error: unknown) => {
-    if (error instanceof MatchApiError && error.code === 'STALE_VERSION') onStale()
-  }
   const submitMutation = useMutation({
-    mutationFn: () => submitFormation(
-      session.matchId,
-      view.version,
-      formationItems(formation.inventory, formation.placements),
-    ),
+    mutationFn: () => {
+      const submittedVersion = view.version
+      const submittedPieces = formationItems(formation.inventory, formation.placements)
+      const submittedPlacementSignature = currentSignature
+      const commandId = crypto.randomUUID()
+      submittedAttemptSignature.current = submittedPlacementSignature
+      return executeWithOneStaleRetry({
+        expectedVersion: submittedVersion,
+        commandId,
+        execute: (expectedVersion, retryCommandId) => submitFormation(
+          session.matchId,
+          expectedVersion,
+          submittedPieces,
+          retryCommandId,
+        ),
+        refetch: onStale,
+        canRetry: (refreshedView) => isSubmitRetrySafe(
+          refreshedView,
+          submittedPlacementSignature,
+          currentSignatureRef.current,
+          submittedPieces,
+          formation.valid,
+        ),
+      })
+    },
     retry: false,
     onSuccess: (response) => {
-      setSubmittedSignature(currentSignature)
+      setSubmittedSignature(submittedAttemptSignature.current)
       onView(response)
     },
-    onError: handleError,
   })
   const lockMutation = useMutation({
-    mutationFn: () => lockFormation(session.matchId, view.version),
+    mutationFn: () => {
+      const submittedVersion = view.version
+      const lockedPlacementSignature = currentSignature
+      const commandId = crypto.randomUUID()
+      return executeWithOneStaleRetry({
+        expectedVersion: submittedVersion,
+        commandId,
+        execute: (expectedVersion, retryCommandId) => lockFormation(
+          session.matchId,
+          expectedVersion,
+          retryCommandId,
+        ),
+        refetch: onStale,
+        canRetry: (refreshedView) => isLockRetrySafe(
+          refreshedView,
+          lockedPlacementSignature,
+          currentSignatureRef.current,
+        ),
+      })
+    },
     retry: false,
     onSuccess: (response) => onView(response),
-    onError: handleError,
   })
   const error = submitMutation.error ?? lockMutation.error
   const submittedCurrent = Boolean(submittedSignature) && submittedSignature === currentSignature
@@ -161,4 +199,52 @@ export function FormationScreen({ view, session, onView, onStale }: FormationScr
       />
     </div>
   )
+}
+
+function isSubmitRetrySafe(
+  refreshedView: PlayerMatchView,
+  submittedSignature: string,
+  latestSignature: string,
+  submittedPieces: FormationItem[],
+  submittedFormationValid: boolean,
+): boolean {
+  const ownLocked = refreshedView.requestingSide === 'PLAYER_ONE'
+    ? refreshedView.playerOneLocked
+    : refreshedView.playerTwoLocked
+  const opponentPresent = refreshedView.requestingSide === 'PLAYER_ONE'
+    ? refreshedView.playerTwoOccupied
+    : refreshedView.playerOneOccupied
+  const pieceIds = new Set(submittedPieces.map((piece) => piece.pieceId))
+  const positions = new Set(submittedPieces.map((piece) => `${piece.row}:${piece.column}`))
+  return refreshedView.phase === 'FORMATION'
+    && !ownLocked
+    && opponentPresent
+    && submittedSignature === latestSignature
+    && submittedFormationValid
+    && submittedPieces.length === FORMATION_PIECE_COUNT
+    && pieceIds.size === FORMATION_PIECE_COUNT
+    && positions.size === FORMATION_PIECE_COUNT
+    && refreshedView.opponentPieces.every((piece) => !('rank' in piece))
+}
+
+function isLockRetrySafe(
+  refreshedView: PlayerMatchView,
+  submittedSignature: string,
+  latestSignature: string,
+): boolean {
+  const ownLocked = refreshedView.requestingSide === 'PLAYER_ONE'
+    ? refreshedView.playerOneLocked
+    : refreshedView.playerTwoLocked
+  const opponentPresent = refreshedView.requestingSide === 'PLAYER_ONE'
+    ? refreshedView.playerTwoOccupied
+    : refreshedView.playerOneOccupied
+  const authoritativePlacements = Object.fromEntries(refreshedView.ownPieces.flatMap((piece) =>
+    piece.position ? [[piece.id, piece.position]] : []))
+  return refreshedView.phase === 'FORMATION'
+    && !ownLocked
+    && opponentPresent
+    && submittedSignature === latestSignature
+    && refreshedView.ownPieces.length === FORMATION_PIECE_COUNT
+    && placementSignature(authoritativePlacements) === submittedSignature
+    && refreshedView.opponentPieces.every((piece) => !('rank' in piece))
 }

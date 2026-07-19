@@ -147,7 +147,7 @@ final class MatchTemporalService {
                 match.cumulativeDisconnectedMillis.merge(side, elapsed, Long::sum);
             }
             match.connected.add(side);
-            persistSystemUpdate(match, MatchUpdatePublisher.UpdateType.PLAYER_CONNECTED);
+            persistLiveUpdate(match, MatchUpdatePublisher.UpdateType.PLAYER_CONNECTED);
             evaluateDeadlines(match, now);
         }
     }
@@ -168,7 +168,7 @@ final class MatchTemporalService {
             if (match.disconnectedSince.putIfAbsent(side, now) != null) {
                 return;
             }
-            persistSystemUpdate(match, MatchUpdatePublisher.UpdateType.PLAYER_DISCONNECTED);
+            persistLiveUpdate(match, MatchUpdatePublisher.UpdateType.PLAYER_DISCONNECTED);
         }
     }
 
@@ -214,10 +214,7 @@ final class MatchTemporalService {
                     changed = true;
                 }
                 if (changed) {
-                    match.version++;
-                    match.liveSequence++;
-                    match.updatedAt = now;
-                    repository.save(match);
+                    persistLiveUpdate(match, null);
                 }
                 evaluateDeadlines(match, now);
             }
@@ -244,7 +241,7 @@ final class MatchTemporalService {
                 : match.state.board();
         int acceptedMoveCount = match.state == null ? 0 : match.state.acceptedMoveCount();
         finish(match, board, deadline.result(), acceptedMoveCount);
-        persistSystemUpdate(match, MatchUpdatePublisher.UpdateType.MATCH_ENDED);
+        persistAuthoritativeUpdate(match, MatchUpdatePublisher.UpdateType.MATCH_ENDED);
         return true;
     }
 
@@ -347,13 +344,20 @@ final class MatchTemporalService {
         match.disconnectedSince.clear();
     }
 
-    private void persistSystemUpdate(
+    private void persistLiveUpdate(
             PrivateMatch match, MatchUpdatePublisher.UpdateType updateType) {
-        match.version++;
         match.liveSequence++;
         match.updatedAt = clock.instant();
         repository.save(match);
-        publishUpdate(match, updateType);
+        if (updateType != null) {
+            publishUpdate(match, updateType);
+        }
+    }
+
+    private void persistAuthoritativeUpdate(
+            PrivateMatch match, MatchUpdatePublisher.UpdateType updateType) {
+        match.version++;
+        persistLiveUpdate(match, updateType);
     }
 
     private void publishUpdate(

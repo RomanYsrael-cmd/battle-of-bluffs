@@ -170,11 +170,14 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
     queryClient.setQueryData(matchQueryKey(session), response.view)
     setSyncMessage('')
   }
-  const synchronize = () => {
+  const synchronize = async () => {
     setSyncMessage('The match changed. Synchronizing the latest state…')
-    void query.refetch().finally(() => {
+    const result = await query.refetch().finally(() => {
       window.setTimeout(() => setSyncMessage(''), 1_500)
     })
+    if (result.error) throw result.error
+    if (!result.data) throw new Error('The refreshed match view was unavailable.')
+    return result.data
   }
 
   if (query.isPending) {
@@ -211,7 +214,7 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
           view={query.data}
           session={session}
           onView={acceptResponse}
-          onStale={synchronize}
+          onStale={() => { void synchronize() }}
           onLeave={onLeave}
         />
       )}

@@ -21,6 +21,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   ALREADY_LOCKED: 'Your formation is already locked.',
   PLAYER_NOT_IN_MATCH: 'Your account does not belong to this match.',
   STALE_VERSION: 'The match changed. Synchronizing the latest state…',
+  STALE_RECOVERY_UNSAFE: 'The match changed, so this action was not retried. Review the latest state and try again.',
+  STALE_RETRY_CONFLICT: 'The match changed again before the action finished. Review the latest state and try again.',
   COMMAND_CONFLICT: 'That command identifier was already used for another action.',
   ILLEGAL_MOVE: 'The server rejected that move as illegal.',
   TERMINAL_MATCH: 'This match has already ended.',
@@ -82,15 +84,20 @@ export const submitFormation = (
   matchId: string,
   expectedVersion: number,
   pieces: FormationItem[],
+  commandId: string = crypto.randomUUID(),
 ): Promise<CommandResponse> => request(`/${matchId}/formation`, {
   method: 'PUT',
-  body: JSON.stringify({ commandId: crypto.randomUUID(), expectedVersion, pieces }),
+  body: JSON.stringify({ commandId, expectedVersion, pieces }),
 })
 
-export const lockFormation = (matchId: string, expectedVersion: number): Promise<CommandResponse> =>
+export const lockFormation = (
+  matchId: string,
+  expectedVersion: number,
+  commandId: string = crypto.randomUUID(),
+): Promise<CommandResponse> =>
   request(`/${matchId}/lock`, {
     method: 'POST',
-    body: JSON.stringify({ commandId: crypto.randomUUID(), expectedVersion }),
+    body: JSON.stringify({ commandId, expectedVersion }),
   })
 
 export const makeMove = (

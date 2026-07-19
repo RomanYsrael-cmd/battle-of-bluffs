@@ -250,8 +250,95 @@ class MatchTimingAndPresenceTest {
     }
 
     @Test
+    void presenceConnectionDoesNotInvalidateFormationExpectedVersion() {
+        MatchCommandResult created = service.createMatch(
+                new CreateMatchCommand(PLAYER_ONE, MatchMode.RANKED, TimerMode.STANDARD_15_PLUS_5));
+        service.playerConnected(created.view().matchId(), PLAYER_ONE);
+        service.joinMatch(new JoinMatchCommand(
+                UUID.randomUUID(), created.view().roomCode(), PLAYER_TWO, created.version()));
+        Fixture fixture = new Fixture(created.view().matchId());
+        PlayerMatchView beforeConnection = view(fixture);
+
+        service.playerConnected(fixture.matchId(), PLAYER_TWO);
+
+        PlayerMatchView afterConnection = view(fixture);
+        assertEquals(beforeConnection.version(), afterConnection.version());
+        assertEquals(beforeConnection.liveSequence() + 1, afterConnection.liveSequence());
+        assertTrue(afterConnection.presence().playerTwoConnected());
+
+        MatchCommandResult submitted = service.submitFormation(new SubmitFormationCommand(
+                UUID.randomUUID(),
+                fixture.matchId(),
+                PLAYER_ONE,
+                beforeConnection.version(),
+                formation(PlayerSide.PLAYER_ONE)));
+
+        assertEquals(beforeConnection.version() + 1, submitted.version());
+        assertEquals(21, submitted.view().ownPieces().size());
+        assertTrue(submitted.view().presence().playerTwoConnected());
+    }
+
+    @Test
+    void presenceDisconnectDoesNotInvalidateAnUnrelatedMove() {
+        Fixture fixture = activeUntimedMatch();
+        PlayerMatchView beforeDisconnect = view(fixture);
+        String disconnectedPlayer = player(beforeDisconnect.currentPlayer().opponent());
+
+        service.playerDisconnected(fixture.matchId(), disconnectedPlayer);
+
+        PlayerMatchView afterDisconnect = view(fixture);
+        assertEquals(beforeDisconnect.version(), afterDisconnect.version());
+        assertEquals(beforeDisconnect.liveSequence() + 1, afterDisconnect.liveSequence());
+
+        MatchCommandResult moved = service.makeMove(legalMove(fixture, beforeDisconnect));
+
+        assertEquals(beforeDisconnect.version() + 1, moved.version());
+        assertEquals(beforeDisconnect.currentPlayer().opponent(), moved.view().currentPlayer());
+    }
+
+    @Test
+    void repeatedPresenceSignalsDoNotCreateCommandVersionsOrDuplicateLiveUpdates() {
+        Fixture fixture = occupied(MatchMode.CASUAL, TimerMode.CASUAL_UNTIMED);
+        PlayerMatchView connected = view(fixture);
+
+        service.playerConnected(fixture.matchId(), PLAYER_TWO);
+        service.playerConnected(fixture.matchId(), PLAYER_TWO);
+
+        PlayerMatchView afterRepeatedConnections = view(fixture);
+        assertEquals(connected.version(), afterRepeatedConnections.version());
+        assertEquals(connected.liveSequence(), afterRepeatedConnections.liveSequence());
+
+        service.playerDisconnected(fixture.matchId(), PLAYER_TWO);
+        PlayerMatchView disconnected = view(fixture);
+        service.playerDisconnected(fixture.matchId(), PLAYER_TWO);
+
+        PlayerMatchView afterRepeatedDisconnections = view(fixture);
+        assertEquals(connected.version(), afterRepeatedDisconnections.version());
+        assertEquals(disconnected.liveSequence(), afterRepeatedDisconnections.liveSequence());
+    }
+
+    @Test
+    void disconnectForfeitAdvancesAuthoritativeVersionExactlyOnce() {
+        Fixture fixture = activeUntimedMatch();
+        service.playerDisconnected(fixture.matchId(), PLAYER_ONE);
+        PlayerMatchView disconnected = view(fixture);
+
+        clock.advance(MatchTimingRules.DISCONNECT_GRACE);
+        service.evaluateAllDeadlines();
+
+        PlayerMatchView terminal = view(fixture);
+        assertEquals(TerminalReason.DISCONNECT_FORFEIT, terminal.terminalResult().reason());
+        assertEquals(disconnected.version() + 1, terminal.version());
+        assertEquals(disconnected.liveSequence() + 1, terminal.liveSequence());
+
+        service.evaluateAllDeadlines();
+        assertEquals(terminal.version(), view(fixture).version());
+    }
+
+    @Test
     void restartFinalizesPersistedOverdueDeadlineIdempotently() {
         Fixture fixture = activeTimedMatch(MatchMode.CASUAL);
+        long versionBeforeRestart = view(fixture).version();
         MatchSnapshotCodec codec = new MatchSnapshotCodec(
                 JsonMapper.builder().findAndAddModules().build());
         String persisted = codec.encode(repository.findById(fixture.matchId()).orElseThrow());
@@ -270,7 +357,35 @@ class MatchTimingAndPresenceTest {
         restarted.recoverAfterRestart();
 
         assertEquals(TerminalReason.TIMEOUT, terminal.terminalResult().reason());
+        assertEquals(versionBeforeRestart + 1, terminal.version());
         assertEquals(terminalVersion, restarted.getView(fixture.matchId(), PLAYER_ONE).version());
+    }
+
+    @Test
+    void restartRecoverySeparatesPresenceSequenceFromCommandVersion() {
+        Fixture fixture = activeUntimedMatch();
+        PlayerMatchView beforeRestart = view(fixture);
+        MatchSnapshotCodec codec = new MatchSnapshotCodec(
+                JsonMapper.builder().findAndAddModules().build());
+        String persisted = codec.encode(repository.findById(fixture.matchId()).orElseThrow());
+        InMemoryMatchRepository restoredRepository = new InMemoryMatchRepository();
+        restoredRepository.save(codec.decode(persisted));
+        PlayerMatchViewMapper restoredMapper = new PlayerMatchViewMapper();
+        restoredMapper.setClock(clock);
+        MatchApplicationService restarted = new MatchApplicationService(
+                restoredRepository, restoredMapper);
+        restarted.setClock(clock);
+
+        restarted.recoverAfterRestart();
+
+        PlayerMatchView recovered = restarted.getView(fixture.matchId(), PLAYER_ONE);
+        assertEquals(beforeRestart.version(), recovered.version());
+        assertEquals(beforeRestart.liveSequence() + 1, recovered.liveSequence());
+        assertFalse(recovered.presence().playerOneConnected());
+        assertFalse(recovered.presence().playerTwoConnected());
+
+        MatchCommandResult moved = restarted.makeMove(legalMove(fixture, beforeRestart));
+        assertEquals(beforeRestart.version() + 1, moved.version());
     }
 
     @Test
