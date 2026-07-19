@@ -1,5 +1,6 @@
 import type { PlayerMatchView } from '../../api/types'
-import { RANK_LABELS } from '../../game/ranks'
+import { RANK_ABBREVIATIONS, RANK_LABELS } from '../../game/ranks'
+import { PieceInsignia } from '../../components/Piece/PieceInsignia'
 
 export function TerminalDisclosure({ view, onLeave }: { view: PlayerMatchView; onLeave: () => void }) {
   const result = view.terminalResult
@@ -16,9 +17,13 @@ export function TerminalDisclosure({ view, onLeave }: { view: PlayerMatchView; o
       <div className="disclosure-grid">
         {view.postMatchPieces.map((piece) => (
           <div key={`${piece.owner}-${piece.id}`} className="disclosed-piece">
-            <strong>{RANK_LABELS[piece.rank]}</strong>
-            <span>{piece.owner === 'PLAYER_ONE' ? 'Player 1' : 'Player 2'}</span>
-            <small>{piece.position ? `${piece.position.row},${piece.position.column}` : 'removed'}</small>
+            <PieceInsignia rank={piece.rank} size="medium" decorative />
+            <div className="disclosed-piece__details">
+              <strong>{RANK_ABBREVIATIONS[piece.rank]}</strong>
+              <span className="disclosed-piece__rank-name">{RANK_LABELS[piece.rank]}</span>
+              <span>{piece.owner === 'PLAYER_ONE' ? 'Player 1' : 'Player 2'}</span>
+              <small>{piece.position ? `${piece.position.row},${piece.position.column}` : 'removed'}</small>
+            </div>
           </div>
         ))}
       </div>

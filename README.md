@@ -1,6 +1,6 @@
-# Battle of Bluffs
+# Games of the Generals
 
-Monorepo foundation for a server-authoritative Game of the Generals–style game. The authoritative specification is [docs/game-rules.md](docs/game-rules.md).
+Monorepo for **Games of the Generals**, a server-authoritative hidden-information strategy game. The authoritative specification is [docs/game-rules.md](docs/game-rules.md).
 
 ## Repository structure
 

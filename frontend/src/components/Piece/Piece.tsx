@@ -1,4 +1,5 @@
 import { RANK_ABBREVIATIONS, RANK_LABELS, type LocalPiece } from '../../game/ranks'
+import { PieceInsignia } from './PieceInsignia'
 
 interface PieceProps {
   piece: LocalPiece
@@ -21,8 +22,11 @@ export function Piece({ piece, selected = false, compact = false, disabled = fal
         onClick?.()
       }}
     >
-      <span className="piece__rank">{RANK_ABBREVIATIONS[piece.rank]}</span>
-      {!compact && <span className="piece__name">{RANK_LABELS[piece.rank]}</span>}
+      <PieceInsignia rank={piece.rank} size={compact ? 'small' : 'medium'} decorative />
+      <span className="piece__text">
+        <span className="piece__rank">{RANK_ABBREVIATIONS[piece.rank]}</span>
+        {!compact && <span className="piece__name">{RANK_LABELS[piece.rank]}</span>}
+      </span>
     </button>
   )
 }

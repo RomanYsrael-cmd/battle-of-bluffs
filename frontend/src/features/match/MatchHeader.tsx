@@ -1,5 +1,6 @@
 import type { PlayerMatchView } from '../../api/types'
 import { DevelopmentWarning } from '../../components/DevelopmentWarning'
+import { BRAND } from '../../config/brand'
 
 interface MatchHeaderProps {
   view: PlayerMatchView
@@ -11,7 +12,7 @@ export function MatchHeader({ view, onLeave }: MatchHeaderProps) {
     <header className="match-header">
       <div>
         <p className="eyebrow">Private room</p>
-        <h1>Battle of Bluffs</h1>
+        <h1>{BRAND.productName}</h1>
         <div className="match-meta">
           <label>
             Room code

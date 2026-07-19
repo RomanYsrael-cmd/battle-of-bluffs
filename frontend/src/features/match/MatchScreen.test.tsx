@@ -59,7 +59,7 @@ describe('active and terminal match screens', () => {
     sessionStorage.clear()
   })
 
-  it('shows own ranks while opponent pieces remain rankless', () => {
+  it('shows the own rank insignia while every opponent uses the neutral hidden back', () => {
     const view = activeView()
     render(
       <MatchBoard
@@ -71,9 +71,14 @@ describe('active and terminal match screens', () => {
       />,
     )
 
-    expect(screen.getAllByText('Flag')).toHaveLength(1)
-    expect(screen.getByText('Opponent')).toBeInTheDocument()
-    expect(screen.getByText('?')).toBeInTheDocument()
+    const ownPiece = document.querySelector('.match-piece--own')
+    const opponentPiece = screen.getByLabelText('Hidden opponent piece')
+    expect(ownPiece?.querySelector('[data-symbol="generic-flag"]')).toBeInTheDocument()
+    expect(screen.getByRole('gridcell', { name: /row 2, column 0, flag/i })).toBeInTheDocument()
+    expect(opponentPiece).toHaveClass('match-piece--opponent')
+    expect(opponentPiece.querySelector('.hidden-piece-insignia')).toBeInTheDocument()
+    expect(opponentPiece.querySelector('[data-symbol]')).not.toBeInTheDocument()
+    expect(opponentPiece).not.toHaveAccessibleName(/flag|spy|general|colonel|major|captain|lieutenant|sergeant|private/i)
     expect(screen.queryByText('Spy')).not.toBeInTheDocument()
   })
 
@@ -91,7 +96,8 @@ describe('active and terminal match screens', () => {
     fireEvent.click(screen.getByRole('gridcell', { name: /row 2, column 0/i }))
     fireEvent.click(screen.getByRole('gridcell', { name: /row 3, column 0, candidate destination/i }))
 
-    expect(screen.getAllByText('Flag')).toHaveLength(1)
+    expect(document.querySelector('.match-piece--own [data-symbol="generic-flag"]'))
+      .toBeInTheDocument()
     await waitFor(() => expect(onView).toHaveBeenCalledWith(commandResponse(moved)))
     const payload = JSON.parse(fetchMock.mock.calls[0][1].body)
     expect(payload.expectedVersion).toBe(6)
@@ -160,6 +166,8 @@ describe('active and terminal match screens', () => {
     expect(screen.getByText('FLAG CAPTURE')).toBeInTheDocument()
     expect(screen.getAllByText('Flag')).toHaveLength(1)
     expect(screen.getByText('Spy')).toBeInTheDocument()
+    expect(document.querySelector('.disclosed-piece [data-symbol="generic-flag"]')).toBeInTheDocument()
+    expect(document.querySelectorAll('.disclosed-piece [data-symbol="eye"]')).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Return home' })).toBeInTheDocument()
   })
 })

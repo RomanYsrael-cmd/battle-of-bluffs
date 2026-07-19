@@ -4,6 +4,7 @@ import { createMatch, joinMatch } from '../../api/client'
 import type { CommandResponse } from '../../api/types'
 import { ApiErrorNotice } from '../../components/ApiErrorNotice'
 import { DevelopmentWarning } from '../../components/DevelopmentWarning'
+import { BRAND } from '../../config/brand'
 
 interface HomeScreenProps {
   onEnteredMatch: (response: CommandResponse) => void
@@ -24,8 +25,8 @@ export function HomeScreen({ onEnteredMatch }: HomeScreenProps) {
     <main className="app-shell home-screen">
       <header className="hero hero--home">
         <div>
-          <p className="eyebrow">Private match · REST development milestone</p>
-          <h1>Enter the room. Keep your rank quiet.</h1>
+          <p className="eyebrow">{BRAND.productName} · Private match</p>
+          <h1>{BRAND.tagline}</h1>
           <p className="hero__copy">
             Create a private room or join another player with their six-character room code.
           </p>

@@ -1,5 +1,6 @@
 import type { PlayerMatchView } from '../../api/types'
 import { RANK_ABBREVIATIONS, RANK_LABELS } from '../../game/ranks'
+import { HiddenPieceInsignia, PieceInsignia } from '../../components/Piece/PieceInsignia'
 import {
   coordinateKey,
   orthogonalDestinations,
@@ -43,6 +44,9 @@ export function MatchBoard({
             piece.position && coordinateKey(piece.position) === key)
           const opponentPiece = view.opponentPieces.find((piece) => coordinateKey(piece.position) === key)
           const candidate = !disabled && candidates.has(key)
+          const ownPieceLabel = ownPiece ? `, ${RANK_LABELS[ownPiece.rank]}` : ''
+          const selectedLabel = selectedPieceId === ownPiece?.id ? ', selected' : ''
+          const candidateLabel = candidate ? ', candidate destination' : ''
 
           return (
             <button
@@ -50,7 +54,7 @@ export function MatchBoard({
               role="gridcell"
               key={key}
               data-position={key}
-              aria-label={`Row ${position.row}, column ${position.column}${candidate ? ', candidate destination' : ''}`}
+              aria-label={`Row ${position.row}, column ${position.column}${ownPieceLabel}${selectedLabel}${candidateLabel}`}
               className={`board-cell ${candidate ? 'board-cell--highlighted' : ''}`}
               disabled={disabled || (!ownPiece && !candidate)}
               onClick={() => {
@@ -64,14 +68,18 @@ export function MatchBoard({
                   className={`match-piece match-piece--own ${selectedPieceId === ownPiece.id ? 'match-piece--selected' : ''}`}
                   title={RANK_LABELS[ownPiece.rank]}
                 >
+                  <PieceInsignia rank={ownPiece.rank} size="small" decorative />
                   <strong>{RANK_ABBREVIATIONS[ownPiece.rank]}</strong>
-                  <small>{RANK_LABELS[ownPiece.rank]}</small>
                 </span>
               )}
               {opponentPiece && (
-                <span className="match-piece match-piece--opponent" data-piece-id={opponentPiece.id}>
-                  <strong>?</strong>
-                  <small>Opponent</small>
+                <span
+                  className="match-piece match-piece--opponent"
+                  data-piece-id={opponentPiece.id}
+                  aria-label="Hidden opponent piece"
+                >
+                  <HiddenPieceInsignia />
+                  <small aria-hidden="true">HIDDEN</small>
                 </span>
               )}
             </button>
