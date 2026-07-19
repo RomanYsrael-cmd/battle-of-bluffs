@@ -1,8 +1,18 @@
 import type { PlayerMatchView } from '../../api/types'
 import { RANK_ABBREVIATIONS, RANK_LABELS } from '../../game/ranks'
 import { PieceInsignia } from '../../components/Piece/PieceInsignia'
+import { RatingChangeDisplay } from '../../profile/ProfileScreens'
+import type { RatingChange } from '../../profile/types'
 
-export function TerminalDisclosure({ view, onLeave }: { view: PlayerMatchView; onLeave: () => void }) {
+export function TerminalDisclosure({
+  view,
+  onLeave,
+  ratingChange,
+}: {
+  view: PlayerMatchView
+  onLeave: () => void
+  ratingChange?: RatingChange | null
+}) {
   const result = view.terminalResult
   const winner = result?.winner
     ? result.winner === view.requestingSide ? 'You won' : `${result.winner === 'PLAYER_ONE' ? 'Player 1' : 'Player 2'} won`
@@ -13,6 +23,7 @@ export function TerminalDisclosure({ view, onLeave }: { view: PlayerMatchView; o
       <p className="eyebrow">Terminal result</p>
       <h2 id="terminal-title">{winner}</h2>
       <p className="terminal-reason">{result?.reason.replaceAll('_', ' ')}</p>
+      {ratingChange && <RatingChangeDisplay change={ratingChange} />}
       <h3>Complete post-match disclosure</h3>
       <div className="disclosure-grid">
         {view.postMatchPieces.map((piece) => (

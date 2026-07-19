@@ -307,6 +307,55 @@ public final class MatchApplicationService {
         }
     }
 
+    public MatchSummary summary(UUID matchId) {
+        PrivateMatch match = byId(matchId);
+        synchronized (match) {
+            return summaryOf(match);
+        }
+    }
+
+    public List<MatchSummary> summaries() {
+        return repository.findAll().stream()
+                .map(match -> {
+                    synchronized (match) {
+                        return summaryOf(match);
+                    }
+                })
+                .toList();
+    }
+
+    public boolean hasActiveMatch(String playerId) {
+        return summaries().stream().anyMatch(summary ->
+                summary.participants().containsValue(playerId)
+                        && summary.phase() != MatchPhase.TERMINAL);
+    }
+
+    private MatchSummary summaryOf(PrivateMatch match) {
+        MatchPhase phase = match.state == null ? MatchPhase.FORMATION : match.state.phase();
+        TerminalResult terminalResult = match.state == null
+                ? null
+                : match.state.terminalResult().orElse(null);
+        int acceptedMoveCount = match.state == null ? 0 : match.state.acceptedMoveCount();
+        return new MatchSummary(
+                match.id,
+                match.mode,
+                match.timerMode,
+                phase,
+                Map.copyOf(match.players),
+                terminalResult,
+                acceptedMoveCount);
+    }
+
+    public record MatchSummary(
+            UUID matchId,
+            MatchMode mode,
+            TimerMode timerMode,
+            MatchPhase phase,
+            Map<PlayerSide, String> participants,
+            TerminalResult terminalResult,
+            int acceptedMoveCount) {
+    }
+
     private void applyMove(PrivateMatch match, Move move) {
         Board board = match.state.board();
         Piece attacker = board.pieceAt(move.source()).orElseThrow();

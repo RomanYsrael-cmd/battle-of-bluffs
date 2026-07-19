@@ -157,6 +157,15 @@ public class AccountService {
         return AccountView.from(requireAccount(userId));
     }
 
+    @Transactional
+    public AccountView updateDisplayName(UUID userId, String submittedDisplayName) {
+        String displayName = submittedDisplayName == null ? "" : submittedDisplayName.strip();
+        validateDisplayName(displayName);
+        UserAccountEntity account = requireAccount(userId);
+        account.updateDisplayName(displayName, clock.instant());
+        return AccountView.from(account);
+    }
+
     private void issueVerification(UserAccountEntity account, Instant now) {
         verificationTokens.invalidateUnused(account.getId(), now);
         String rawToken = tokenGenerator.generate();

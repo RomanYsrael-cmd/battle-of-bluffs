@@ -81,4 +81,7 @@ public class MatchAggregateEntity {
     public UUID id() { return id; }
     public String roomCode() { return roomCode; }
     public String snapshotJson() { return snapshotJson; }
+    public Instant createdAt() { return createdAt; }
+    public Instant updatedAt() { return updatedAt; }
+    public Instant terminalAt() { return terminalAt; }
 }

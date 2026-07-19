@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { makeMove, MatchApiError, resign } from '../../api/client'
 import type { CommandResponse, PlayerMatchView } from '../../api/types'
 import { ApiErrorNotice } from '../../components/ApiErrorNotice'
@@ -8,6 +8,7 @@ import type { MatchSession } from '../../session/session'
 import { EventHistory } from './EventHistory'
 import { MatchBoard } from './MatchBoard'
 import { TerminalDisclosure } from './TerminalDisclosure'
+import { getMatchHistory } from '../../profile/client'
 
 interface ActiveMatchScreenProps {
   view: PlayerMatchView
@@ -43,6 +44,14 @@ export function ActiveMatchScreen({
     retry: false,
     onSuccess: (response) => onView(response),
     onError: handleError,
+  })
+  const ratingHistory = useQuery({
+    queryKey: ['match-history', view.matchId],
+    queryFn: () => getMatchHistory(view.matchId),
+    enabled: view.phase === 'TERMINAL'
+      && view.mode === 'RANKED'
+      && view.terminalResult?.reason !== 'NO_CONTEST',
+    refetchInterval: (query) => query.state.data?.ratingChange ? false : 1_000,
   })
   const selectedPiece = view.ownPieces.find((piece) => piece.id === selectedPieceId)
   const isOwnTurn = view.currentPlayer === view.requestingSide
@@ -105,7 +114,13 @@ export function ActiveMatchScreen({
         </div>
         {moveMutation.isPending && <p role="status">Waiting for the server to apply the move…</p>}
         <ApiErrorNotice error={error} />
-        {terminal && <TerminalDisclosure view={view} onLeave={onLeave} />}
+        {terminal && (
+          <TerminalDisclosure
+            view={view}
+            onLeave={onLeave}
+            ratingChange={ratingHistory.data?.ratingChange}
+          />
+        )}
       </section>
       <EventHistory events={view.events} />
     </div>

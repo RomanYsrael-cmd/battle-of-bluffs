@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   QueryClient,
   QueryClientProvider,
@@ -15,7 +15,7 @@ import {
   VerificationStatusScreen,
   VerifyEmailScreen,
 } from './auth/AuthScreens'
-import { getCurrentAccount, logout } from './auth/client'
+import { getCurrentAccount, logout, type CurrentAccount } from './auth/client'
 import type { ChatError, ChatMessage, CommandResponse } from './api/types'
 import { ApiErrorNotice } from './components/ApiErrorNotice'
 import { FormationScreen } from './features/formation/FormationScreen'
@@ -36,6 +36,13 @@ import {
   mergeChatMessages,
   type MatchConnectionState,
 } from './realtime/matchSocket'
+import {
+  LeaderboardScreen,
+  MatchHistoryListScreen,
+  MatchHistoryScreen,
+  MyProfileScreen,
+  PublicProfileScreen,
+} from './profile/ProfileScreens'
 
 const matchQueryKey = (session: MatchSession) => ['match', session.matchId]
 
@@ -230,24 +237,36 @@ function MatchApplication() {
     : <HomeScreen onEnteredMatch={enterMatch} />
 }
 
-function AuthenticatedMatchApplication() {
+function AccountNavigation({ account }: { account: CurrentAccount }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  return (
+    <div className="account-bar">
+      <nav aria-label="Primary navigation">
+        <Link to="/">Play</Link>
+        <Link to="/history">History</Link>
+        <Link to="/leaderboard">Leaderboard</Link>
+        <Link to="/profile">Profile</Link>
+      </nav>
+      <span>{account.displayName}</span>
+      {!account.emailVerified && <Link to="/verification-status">Verify email</Link>}
+      <button type="button" onClick={() => void logout().then(() => {
+        clearSession()
+        queryClient.clear()
+        navigate('/login', { replace: true })
+      })}>Sign out</button>
+    </div>
+  )
+}
+
+function AuthenticatedPage({ children }: { children: ReactNode }) {
   const account = useQuery({ queryKey: ['account'], queryFn: getCurrentAccount, retry: false })
   if (account.isPending) return <main className="app-shell"><p role="status">Loading account…</p></main>
   if (!account.data) return <Navigate to="/login" replace />
   return (
     <>
-      <div className="account-bar">
-        <span>{account.data.displayName}</span>
-        {!account.data.emailVerified && <Link to="/verification-status">Verify email</Link>}
-        <button type="button" onClick={() => void logout().then(() => {
-          clearSession()
-          queryClient.clear()
-          navigate('/login', { replace: true })
-        })}>Sign out</button>
-      </div>
-      <MatchApplication />
+      <AccountNavigation account={account.data} />
+      {children}
     </>
   )
 }
@@ -274,7 +293,12 @@ function ApplicationRoutes() {
         <Route path="/reset-password" element={<ResetPasswordScreen />} />
         <Route path="/verify-email" element={<VerifyEmailScreen />} />
         <Route path="/verification-status" element={<VerificationStatusScreen />} />
-        <Route path="*" element={<AuthenticatedMatchApplication />} />
+        <Route path="/profile" element={<AuthenticatedPage><MyProfileScreen /></AuthenticatedPage>} />
+        <Route path="/players/:username" element={<AuthenticatedPage><PublicProfileScreen /></AuthenticatedPage>} />
+        <Route path="/history" element={<AuthenticatedPage><MatchHistoryListScreen /></AuthenticatedPage>} />
+        <Route path="/matches/:matchId/history" element={<AuthenticatedPage><MatchHistoryScreen /></AuthenticatedPage>} />
+        <Route path="/leaderboard" element={<AuthenticatedPage><LeaderboardScreen /></AuthenticatedPage>} />
+        <Route path="*" element={<AuthenticatedPage><MatchApplication /></AuthenticatedPage>} />
       </Routes>
     </>
   )

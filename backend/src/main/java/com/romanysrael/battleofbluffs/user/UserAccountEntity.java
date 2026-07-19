@@ -140,4 +140,9 @@ public class UserAccountEntity {
         lastLoginAt = now;
         updatedAt = now;
     }
+
+    public void updateDisplayName(String displayName, Instant now) {
+        this.displayName = displayName;
+        this.updatedAt = now;
+    }
 }
