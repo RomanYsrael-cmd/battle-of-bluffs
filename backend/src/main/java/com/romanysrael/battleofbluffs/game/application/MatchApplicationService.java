@@ -475,6 +475,7 @@ public final class MatchApplicationService {
         while (match.commands.size() > COMMAND_HISTORY_LIMIT) {
             match.commands.remove(match.commands.keySet().iterator().next());
         }
+        repository.save(match);
         return result;
     }
 
