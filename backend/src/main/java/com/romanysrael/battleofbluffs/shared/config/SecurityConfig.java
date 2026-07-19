@@ -10,13 +10,14 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        // TODO: Development-only policy. Replace with authenticated API rules before user flows are added.
+        // TODO: Remove or protect /api/dev/** when real authentication is implemented.
         return http
                 .csrf(csrf -> csrf.disable())
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers("/api/dev/**").permitAll()
                         .anyRequest().permitAll())
                 .build();
     }

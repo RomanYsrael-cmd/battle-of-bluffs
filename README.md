@@ -1,6 +1,6 @@
 # Battle of Bluffs
 
-Initial monorepo foundation for a server-authoritative Game of the Generals–style game. The authoritative specification is [docs/game-rules.md](docs/game-rules.md).
+Monorepo foundation for a server-authoritative Game of the Generals–style game. The authoritative specification is [docs/game-rules.md](docs/game-rules.md).
 
 ## Repository structure
 
@@ -48,6 +48,28 @@ Health and application information are available at:
 - `http://localhost:8080/actuator/health`
 - `http://localhost:8080/actuator/info`
 
+### In-memory development match API
+
+The backend currently supports a complete two-player private match in memory: room creation/joining, server-validated formations, locking, random first-player selection, authoritative moves and battles, resignation, optimistic versioning, idempotent commands, public event history, and player-specific secret-safe views. Restarting the backend removes every match.
+
+Create a match:
+
+```bash
+curl -sS -X POST http://localhost:8080/api/dev/matches \
+  -H 'Content-Type: application/json' \
+  -d '{"playerId":"alice-dev"}'
+```
+
+Join it using the returned `matchId`, `roomCode`, and current `version`:
+
+```bash
+curl -sS -X POST http://localhost:8080/api/dev/matches/MATCH_ID/join \
+  -H 'Content-Type: application/json' \
+  -d '{"commandId":"NEW_UUID","roomCode":"ROOM_CODE","playerId":"bob-dev","expectedVersion":1}'
+```
+
+The `playerId` values in request bodies and query parameters are temporary development credentials. They are **not authentication** and must not be exposed as a production security design. See [docs/development-api.md](docs/development-api.md) for the remaining endpoints and request shapes.
+
 ## Frontend
 
 ```bash
@@ -74,12 +96,13 @@ Implemented in this foundation:
 - Exhaustive ordered-rank battle tests and focused movement/invariant tests
 - PostgreSQL development Compose service
 - Responsive local 8×9 formation placement, swapping, removal, reset, validation, and lock interaction
+- In-memory, server-authoritative private-match application service and temporary development REST API
 
 Explicitly deferred:
 
-- authentication and user flows
-- matchmaking, lobby behavior, and multiplayer rooms
-- WebSocket gameplay and finalized event contracts
+- authentication and secure player identities
+- matchmaking and lobby behavior
+- WebSocket live synchronization and finalized event contracts
 - complete persistence entities and database schema
 - video/voice calling
 - rankings, replay delivery, and production deployment

@@ -1,0 +1,7 @@
+package com.romanysrael.battleofbluffs.game.application;
+
+public enum MatchErrorCode {
+    MATCH_NOT_FOUND, INVALID_ROOM_STATE, MATCH_FULL, PLAYER_NOT_IN_MATCH,
+    INVALID_FORMATION, ALREADY_LOCKED, STALE_VERSION, COMMAND_CONFLICT,
+    ILLEGAL_MOVE, TERMINAL_MATCH
+}
