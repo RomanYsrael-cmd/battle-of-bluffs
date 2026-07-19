@@ -30,6 +30,7 @@ public final class MatchApplicationService {
     private final PlayerMatchViewMapper mapper;
     private final MatchTemporalService temporal;
     private MatchUpdatePublisher updatePublisher = update -> { };
+    private MatchJoinPolicy joinPolicy = MatchJoinPolicy.ALLOW_ALL;
     private final MoveValidator moveValidator = new MoveValidator();
     private final BattleResolver battleResolver = new BattleResolver();
     private final VictoryEvaluator victoryEvaluator = new VictoryEvaluator();
@@ -52,6 +53,11 @@ public final class MatchApplicationService {
     void setClock(Clock clock) {
         this.clock = clock;
         this.temporal.setClock(clock);
+    }
+
+    @Autowired(required = false)
+    void setJoinPolicy(MatchJoinPolicy joinPolicy) {
+        this.joinPolicy = joinPolicy;
     }
 
     public MatchCommandResult createMatch(CreateMatchCommand command) {
@@ -94,6 +100,10 @@ public final class MatchApplicationService {
             }
             if (match.players.size() >= 2) {
                 throw error(MatchErrorCode.MATCH_FULL, "Match already has two players");
+            }
+            if (!joinPolicy.mayJoin(match.players.get(PlayerSide.PLAYER_ONE), playerId)) {
+                throw error(MatchErrorCode.BLOCKED_RELATION,
+                        "A block relationship prevents joining this casual room");
             }
             match.players.put(PlayerSide.PLAYER_TWO, playerId);
             temporal.openFormation(match, receivedAt);
@@ -286,6 +296,14 @@ public final class MatchApplicationService {
         synchronized (match) {
             temporal.evaluateDeadlines(match, clock.instant());
             return mapper.map(match, playerId);
+        }
+    }
+
+    public List<String> participantIds(UUID matchId, String requestingPlayerId) {
+        PrivateMatch match = byId(matchId);
+        synchronized (match) {
+            member(match, requestingPlayerId);
+            return List.copyOf(match.players.values());
         }
     }
 

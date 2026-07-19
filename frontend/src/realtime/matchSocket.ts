@@ -1,5 +1,5 @@
 import { Client, type IMessage } from '@stomp/stompjs'
-import type { PlayerMatchView } from '../api/types'
+import type { ChatError, ChatMessage, PlayerMatchView } from '../api/types'
 
 export type MatchConnectionState =
   | 'CONNECTING'
@@ -38,12 +38,20 @@ interface MatchSocketCallbacks {
   onConnected: () => void
   onUpdate: (update: MatchUpdateEnvelope) => void
   onInvalidMessage: () => void
+  onChatConnected?: () => void
+  onChatMessage?: (message: ChatMessage) => void
+  onChatError?: (error: ChatError) => void
+}
+
+export interface MatchRealtimeConnection {
+  disconnect: () => void
+  sendChat: (body: string) => boolean
 }
 
 export function connectMatchUpdates(
   matchId: string,
   callbacks: MatchSocketCallbacks,
-): () => void {
+): MatchRealtimeConnection {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const client = new Client({
     brokerURL: `${protocol}//${window.location.host}/ws`,
@@ -71,6 +79,22 @@ export function connectMatchUpdates(
         callbacks.onInvalidMessage()
       }
     }, { receipt: receiptId })
+    const chatReceiptId = `chat-subscription-${crypto.randomUUID()}`
+    client.watchForReceipt(chatReceiptId, () => callbacks.onChatConnected?.())
+    client.subscribe(`/user/queue/matches/${matchId}/chat`, (message: IMessage) => {
+      try {
+        callbacks.onChatMessage?.(JSON.parse(message.body) as ChatMessage)
+      } catch {
+        callbacks.onInvalidMessage()
+      }
+    }, { receipt: chatReceiptId })
+    client.subscribe(`/user/queue/matches/${matchId}/chat/errors`, (message: IMessage) => {
+      try {
+        callbacks.onChatError?.(JSON.parse(message.body) as ChatError)
+      } catch {
+        callbacks.onInvalidMessage()
+      }
+    })
   }
   const reconnecting = () => {
     if (!stopped) callbacks.onState('RECONNECTING')
@@ -81,8 +105,27 @@ export function connectMatchUpdates(
 
   callbacks.onState('CONNECTING')
   client.activate()
-  return () => {
-    stopped = true
-    void client.deactivate()
+  return {
+    disconnect: () => {
+      stopped = true
+      void client.deactivate()
+    },
+    sendChat: (body: string) => {
+      if (!client.connected) return false
+      client.publish({
+        destination: `/app/matches/${matchId}/chat`,
+        body: JSON.stringify({ body }),
+      })
+      return true
+    },
   }
+}
+
+export function mergeChatMessages(
+  current: ChatMessage[],
+  incoming: ChatMessage[],
+): ChatMessage[] {
+  const byId = new Map(current.map((message) => [message.id, message]))
+  incoming.forEach((message) => byId.set(message.id, message))
+  return [...byId.values()].sort((left, right) => left.sequence - right.sequence)
 }

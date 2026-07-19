@@ -26,6 +26,21 @@ class MatchApplicationServiceTest {
         assertEquals(MatchErrorCode.PLAYER_NOT_IN_MATCH,failure(()->service.getView(id,"unknown")).code());
     }
 
+    @Test void blockRelationshipPreventsCasualJoinWithoutChangingTheMatch() {
+        MatchCommandResult created = service.createMatch(new CreateMatchCommand("host"));
+        service.setJoinPolicy((existingPlayerId, joiningPlayerId) -> false);
+
+        MatchApplicationException rejection = failure(() -> service.joinMatch(
+                created.view().matchId(),
+                new JoinMatchCommand(
+                        UUID.randomUUID(), created.view().roomCode(), "blocked-guest", 1)));
+
+        assertEquals(MatchErrorCode.BLOCKED_RELATION, rejection.code());
+        PlayerMatchView unchanged = service.getView(created.view().matchId(), "host");
+        assertEquals(1, unchanged.version());
+        assertFalse(unchanged.playerTwoOccupied());
+    }
+
     @Test void validatesFormationAndAllowsReplacementOnlyBeforeLock() {
         Fixture f=fixture();
         List<FormationPiece> invalid=new ArrayList<>(formation(PlayerSide.PLAYER_ONE)); invalid.set(0,new FormationPiece(invalid.get(0).pieceId(),Rank.PRIVATE,invalid.get(0).position()));

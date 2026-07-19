@@ -5,7 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
-import { getPlayerView } from './api/client'
+import { getChatHistory, getPlayerView } from './api/client'
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 import {
   ForgotPasswordScreen,
@@ -16,9 +16,10 @@ import {
   VerifyEmailScreen,
 } from './auth/AuthScreens'
 import { getCurrentAccount, logout } from './auth/client'
-import type { CommandResponse } from './api/types'
+import type { ChatError, ChatMessage, CommandResponse } from './api/types'
 import { ApiErrorNotice } from './components/ApiErrorNotice'
 import { FormationScreen } from './features/formation/FormationScreen'
+import { MatchChatPanel } from './features/chat/MatchChatPanel'
 import { HomeScreen } from './features/home/HomeScreen'
 import { ActiveMatchScreen } from './features/match/ActiveMatchScreen'
 import { MatchHeader } from './features/match/MatchHeader'
@@ -32,6 +33,7 @@ import {
 import {
   assessMatchUpdate,
   connectMatchUpdates,
+  mergeChatMessages,
   type MatchConnectionState,
 } from './realtime/matchSocket'
 
@@ -41,6 +43,9 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
   const queryClient = useQueryClient()
   const [syncMessage, setSyncMessage] = useState('')
   const [connectionState, setConnectionState] = useState<MatchConnectionState>('CONNECTING')
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatError, setChatError] = useState<ChatError | null>(null)
+  const [sendChat, setSendChat] = useState<(body: string) => boolean>(() => () => false)
   const query = useQuery({
     queryKey: matchQueryKey(session),
     queryFn: () => getPlayerView(session.matchId),
@@ -66,7 +71,19 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
       })
     }
 
-    const disconnect = connectMatchUpdates(session.matchId, {
+    const loadChatHistory = () => {
+      void getChatHistory(session.matchId).then((history) => {
+        if (active) setChatMessages((current) => mergeChatMessages(current, history))
+      }).catch(() => {
+        if (active) setChatError({
+          code: 'CHAT_HISTORY_UNAVAILABLE',
+          message: 'Chat history could not be loaded.',
+          serverTimestamp: new Date().toISOString(),
+        })
+      })
+    }
+
+    const connection = connectMatchUpdates(session.matchId, {
       onState: setConnectionState,
       onConnected: () => refetchSafeView(),
       onUpdate: (update) => {
@@ -96,10 +113,24 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
         setConnectionState('RECOVERING')
         refetchSafeView()
       },
+      onChatConnected: loadChatHistory,
+      onChatMessage: (message) => {
+        if (!active || message.matchId !== session.matchId) return
+        setChatError(null)
+        setChatMessages((current) => mergeChatMessages(current, [message]))
+      },
+      onChatError: (error) => {
+        if (active) setChatError(error)
+      },
     })
+    setSendChat(() => typeof connection === 'function' ? () => false : connection.sendChat)
     return () => {
       active = false
-      disconnect()
+      if (typeof (connection as unknown) === 'function') {
+        (connection as unknown as () => void)()
+      }
+      else connection.disconnect()
+      setSendChat(() => () => false)
     }
   }, [queryClient, session])
 
@@ -150,6 +181,15 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
           onView={acceptResponse}
           onStale={synchronize}
           onLeave={onLeave}
+        />
+      )}
+      {query.data.playerTwoOccupied && (
+        <MatchChatPanel
+          matchId={session.matchId}
+          connected={connectionState === 'SYNCHRONIZED'}
+          messages={chatMessages}
+          error={chatError}
+          onSend={sendChat}
         />
       )}
     </main>

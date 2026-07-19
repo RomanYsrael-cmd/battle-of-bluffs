@@ -49,6 +49,27 @@ class MatchSubscriptionInterceptorTest {
     }
 
     @Test
+    void participantMaySubscribeToChatAndSendOnlyToTheMatchChatApplicationDestination() {
+        assertDoesNotThrow(() -> interceptor.preSend(
+                subscription("/user/queue/matches/" + matchId + "/chat", memberId),
+                mock(MessageChannel.class)));
+        assertDoesNotThrow(() -> interceptor.preSend(
+                send("/app/matches/" + matchId + "/chat", memberId),
+                mock(MessageChannel.class)));
+    }
+
+    @Test
+    void authenticatedNonparticipantCannotSendOrSubscribeToAnotherMatchChat() {
+        UUID outsiderId = UUID.randomUUID();
+        assertThrows(AccessDeniedException.class, () -> interceptor.preSend(
+                subscription("/user/queue/matches/" + matchId + "/chat", outsiderId),
+                mock(MessageChannel.class)));
+        assertThrows(AccessDeniedException.class, () -> interceptor.preSend(
+                send("/app/matches/" + matchId + "/chat", outsiderId),
+                mock(MessageChannel.class)));
+    }
+
+    @Test
     void authenticatedNonparticipantCannotSubscribeToAnotherMatch() {
         assertThrows(AccessDeniedException.class, () -> interceptor.preSend(
                 subscription(matchId, UUID.randomUUID()), mock(MessageChannel.class)));
@@ -90,5 +111,19 @@ class MatchSubscriptionInterceptorTest {
                     principal, principal.getPassword(), principal.getAuthorities()));
         }
         return MessageBuilder.createMessage(new byte[0], headers.getMessageHeaders());
+    }
+
+    private static Message<byte[]> send(String destination, UUID userId) {
+        StompHeaderAccessor headers = StompHeaderAccessor.create(StompCommand.SEND);
+        headers.setDestination(destination);
+        if (userId != null) {
+            AccountPrincipal principal = new AccountPrincipal(
+                    userId, "user-" + userId, "Player", AccountStatus.ACTIVE, "encoded");
+            headers.setUser(UsernamePasswordAuthenticationToken.authenticated(
+                    principal, principal.getPassword(), principal.getAuthorities()));
+        }
+        return MessageBuilder.createMessage(
+                "message".getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                headers.getMessageHeaders());
     }
 }

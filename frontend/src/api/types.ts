@@ -124,3 +124,31 @@ export interface ApiErrorBody {
   message: string
   timestamp: string
 }
+
+export interface ChatMessage {
+  id: string
+  matchId: string
+  sequence: number
+  senderDisplayName: string
+  ownMessage: boolean
+  body: string
+  serverTimestamp: string
+}
+
+export interface ChatError {
+  code: string
+  message: string
+  serverTimestamp: string
+}
+
+export interface ModerationStatus {
+  opponentDisplayName: string
+  blockedByYou: boolean
+}
+
+export type ReportCategory = 'ABUSE' | 'HARASSMENT' | 'CHEATING' | 'SPAM' | 'OTHER'
+
+export interface ReportReceipt {
+  reportId: string
+  message: string
+}

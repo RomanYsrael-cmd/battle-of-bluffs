@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { matchView } from '../test-fixtures'
-import { assessMatchUpdate, type MatchUpdateEnvelope } from './matchSocket'
+import { assessMatchUpdate, mergeChatMessages, type MatchUpdateEnvelope } from './matchSocket'
+import type { ChatMessage } from '../api/types'
 
 function update(
   version: number,
@@ -49,5 +50,20 @@ describe('match WebSocket sequencing', () => {
       view: matchView({ matchId: update(6).matchId, version: 4, liveSequence: 6 }),
     }
     expect(assessMatchUpdate(timerSync.matchId, 5, 4, timerSync)).toBe('APPLY')
+  })
+
+  it('deduplicates retried chat delivery and preserves server sequence order', () => {
+    const first: ChatMessage = {
+      id: 'message-1',
+      matchId: update(1).matchId,
+      sequence: 1,
+      senderDisplayName: 'First',
+      ownMessage: false,
+      body: 'first',
+      serverTimestamp: '2026-07-19T10:15:30Z',
+    }
+    const second = { ...first, id: 'message-2', sequence: 2, body: 'second' }
+
+    expect(mergeChatMessages([second], [first, second])).toEqual([first, second])
   })
 })

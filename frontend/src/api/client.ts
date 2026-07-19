@@ -2,6 +2,10 @@ import type {
   CommandResponse,
   FormationItem,
   PlayerMatchView,
+  ChatMessage,
+  ModerationStatus,
+  ReportCategory,
+  ReportReceipt,
 } from './types'
 import type { Position } from '../game/coordinates'
 import { apiRequest, HttpApiError } from './http'
@@ -81,3 +85,25 @@ export const resign = (matchId: string, expectedVersion: number): Promise<Comman
     method: 'POST',
     body: JSON.stringify({ commandId: crypto.randomUUID(), expectedVersion }),
   })
+
+export const getChatHistory = (matchId: string): Promise<ChatMessage[]> =>
+  request(`/${matchId}/chat`)
+
+export const getModerationStatus = (matchId: string): Promise<ModerationStatus> =>
+  request(`/${matchId}/moderation`)
+
+export const blockOpponent = (matchId: string): Promise<ModerationStatus> =>
+  request(`/${matchId}/block`, { method: 'POST' })
+
+export const unblockOpponent = (matchId: string): Promise<ModerationStatus> =>
+  request(`/${matchId}/block`, { method: 'DELETE' })
+
+export const reportOpponent = (
+  matchId: string,
+  category: ReportCategory,
+  comment: string,
+  chatMessageReferences: string[],
+): Promise<ReportReceipt> => request(`/${matchId}/reports`, {
+  method: 'POST',
+  body: JSON.stringify({ category, comment, chatMessageReferences }),
+})

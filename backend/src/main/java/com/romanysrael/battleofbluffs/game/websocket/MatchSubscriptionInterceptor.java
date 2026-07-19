@@ -18,8 +18,10 @@ import org.springframework.stereotype.Component;
 
 @Component
 public final class MatchSubscriptionInterceptor implements ChannelInterceptor {
-    private static final Pattern MATCH_DESTINATION = Pattern.compile(
-            "^/user/queue/matches/([0-9a-fA-F-]{36})$");
+    private static final Pattern MATCH_SUBSCRIPTION = Pattern.compile(
+            "^/user/queue/matches/([0-9a-fA-F-]{36})(?:/chat(?:/errors)?)?$");
+    private static final Pattern MATCH_CHAT_SEND = Pattern.compile(
+            "^/app/matches/([0-9a-fA-F-]{36})/chat$");
 
     private final ObjectProvider<MatchApplicationService> matches;
     private final MatchPresenceCoordinator presence;
@@ -34,40 +36,44 @@ public final class MatchSubscriptionInterceptor implements ChannelInterceptor {
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
-        if (accessor.getCommand() == StompCommand.SEND) {
-            throw new AccessDeniedException(
-                    "Authoritative match commands must use the REST API");
-        }
-        if (accessor.getCommand() != StompCommand.SUBSCRIBE) {
+        if (accessor.getCommand() != StompCommand.SUBSCRIBE
+                && accessor.getCommand() != StompCommand.SEND) {
             return message;
         }
 
         Authentication authentication = authentication(accessor);
         String destination = accessor.getDestination();
-        Matcher destinationMatch = MATCH_DESTINATION.matcher(
-                destination == null ? "" : destination);
+        Pattern allowedPattern = accessor.getCommand() == StompCommand.SEND
+                ? MATCH_CHAT_SEND
+                : MATCH_SUBSCRIPTION;
+        Matcher destinationMatch = allowedPattern.matcher(destination == null ? "" : destination);
         if (!destinationMatch.matches()) {
-            throw new AccessDeniedException("WebSocket subscription is not allowed");
+            throw new AccessDeniedException("WebSocket destination is not allowed");
         }
 
         UUID matchId;
         try {
             matchId = UUID.fromString(destinationMatch.group(1));
         } catch (IllegalArgumentException exception) {
-            throw new AccessDeniedException("WebSocket subscription is not allowed", exception);
+            throw new AccessDeniedException("WebSocket destination is not allowed", exception);
         }
 
         AccountPrincipal principal = (AccountPrincipal) authentication.getPrincipal();
         try {
             matches.getObject().getView(matchId, principal.userId().toString());
         } catch (MatchApplicationException exception) {
-            throw new AccessDeniedException("WebSocket subscription is not allowed", exception);
+            throw new AccessDeniedException("WebSocket destination is not allowed", exception);
+        }
+        if (accessor.getCommand() == StompCommand.SEND) {
+            return message;
         }
         String sessionId = accessor.getSessionId();
         if (sessionId == null || sessionId.isBlank()) {
             throw new AccessDeniedException("WebSocket session is required");
         }
-        presence.subscribed(matchId, principal.userId().toString(), sessionId);
+        if (destination.equals("/user/queue/matches/" + matchId)) {
+            presence.subscribed(matchId, principal.userId().toString(), sessionId);
+        }
         return message;
     }
 
@@ -77,6 +83,6 @@ public final class MatchSubscriptionInterceptor implements ChannelInterceptor {
                 && authentication.getPrincipal() instanceof AccountPrincipal) {
             return authentication;
         }
-        throw new AccessDeniedException("Authentication is required for WebSocket subscriptions");
+        throw new AccessDeniedException("Authentication is required for WebSocket messaging");
     }
 }

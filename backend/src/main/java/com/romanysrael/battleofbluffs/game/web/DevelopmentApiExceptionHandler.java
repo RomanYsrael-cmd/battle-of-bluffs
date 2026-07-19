@@ -2,6 +2,7 @@ package com.romanysrael.battleofbluffs.game.web;
 
 import com.romanysrael.battleofbluffs.game.application.*;
 import com.romanysrael.battleofbluffs.user.AccountException;
+import com.romanysrael.battleofbluffs.social.ChatException;
 import java.time.Instant;
 import java.util.stream.Collectors;
 import org.springframework.http.*;
@@ -24,11 +25,23 @@ public final class DevelopmentApiExceptionHandler {
                 exception.code(), exception.getMessage(), Instant.now()));
     }
 
+    @ExceptionHandler(ChatException.class)
+    ResponseEntity<ApiError> chat(ChatException exception) {
+        HttpStatus status = switch (exception.code()) {
+            case "CHAT_RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
+            case "CHAT_BLOCKED" -> HttpStatus.FORBIDDEN;
+            case "CHAT_UNAVAILABLE", "OPPONENT_UNAVAILABLE" -> HttpStatus.CONFLICT;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return ResponseEntity.status(status).body(new ApiError(
+                exception.code(), exception.getMessage(), Instant.now()));
+    }
+
     @ExceptionHandler(MatchApplicationException.class)
     ResponseEntity<ApiError> application(MatchApplicationException exception) {
         HttpStatus status = switch (exception.code()) {
             case MATCH_NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case PLAYER_NOT_IN_MATCH -> HttpStatus.FORBIDDEN;
+            case PLAYER_NOT_IN_MATCH, BLOCKED_RELATION -> HttpStatus.FORBIDDEN;
             case STALE_VERSION, COMMAND_CONFLICT, MATCH_FULL, ALREADY_LOCKED,
                     TERMINAL_MATCH, INVALID_ROOM_STATE -> HttpStatus.CONFLICT;
             case INVALID_FORMATION, ILLEGAL_MOVE -> HttpStatus.UNPROCESSABLE_CONTENT;

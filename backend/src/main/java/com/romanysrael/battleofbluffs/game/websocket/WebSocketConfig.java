@@ -41,6 +41,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .setHeartbeatValue(new long[] {10_000, 10_000})
                 .setTaskScheduler(heartbeatScheduler);
         registry.setUserDestinationPrefix("/user");
+        registry.setApplicationDestinationPrefixes("/app");
     }
 
     @Override
