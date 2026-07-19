@@ -17,7 +17,7 @@ import { BRAND } from '../config/brand'
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
     <main className="app-shell auth-shell">
-      <Link to="/" className="auth-brand">{BRAND.productName}</Link>
+      <Link to="/welcome" className="auth-brand">{BRAND.productName}</Link>
       <section className="auth-card">
         <p className="eyebrow">{BRAND.tagline}</p>
         <h1>{title}</h1>

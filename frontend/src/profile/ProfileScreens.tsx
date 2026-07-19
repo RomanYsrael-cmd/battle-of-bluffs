@@ -110,6 +110,68 @@ export function MyProfileScreen() {
   )
 }
 
+export function AccountSettingsScreen() {
+  const queryClient = useQueryClient()
+  const profile = useQuery({ queryKey: ['profile', 'me'], queryFn: getMyProfile })
+  const [displayName, setDisplayName] = useState('')
+  const update = useMutation({
+    mutationFn: () => updateMyProfile(displayName),
+    onSuccess: (value) => {
+      queryClient.setQueryData(['profile', 'me'], value)
+      queryClient.setQueryData(['account'], (account: object | undefined) =>
+        account ? { ...account, displayName: value.displayName } : account)
+      setDisplayName('')
+    },
+  })
+  if (profile.isPending) return <PageStatus text="Loading account settings…" />
+  if (!profile.data) return <PageError error={profile.error} />
+  const submittedDisplayName = displayName || profile.data.displayName
+  return (
+    <main className="app-shell profile-page">
+      <header className="page-heading">
+        <div><p className="eyebrow">Your account</p><h1>Account settings</h1></div>
+      </header>
+      <section className="profile-card settings-card">
+        <h2>Public identity</h2>
+        <form className="profile-edit" onSubmit={(event) => {
+          event.preventDefault()
+          if (submittedDisplayName !== profile.data.displayName) update.mutate()
+        }}>
+          <label>
+            Display name
+            <input
+              minLength={2}
+              maxLength={50}
+              value={submittedDisplayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+            />
+          </label>
+          <button
+            className="button button--primary"
+            disabled={update.isPending || submittedDisplayName === profile.data.displayName}
+          >
+            {update.isPending ? 'Saving…' : 'Save display name'}
+          </button>
+        </form>
+        {update.isSuccess && <p className="success-notice" role="status">Display name updated.</p>}
+        <ApiErrorNotice error={update.error} />
+      </section>
+      <section className="profile-card settings-card">
+        <h2>Sign-in details</h2>
+        <dl className="settings-details">
+          <div><dt>Username</dt><dd>@{profile.data.username}</dd></div>
+          <div><dt>Email</dt><dd>{profile.data.email}</dd></div>
+          <div><dt>Status</dt><dd>{profile.data.emailVerified ? 'Email verified' : 'Verification pending'}</dd></div>
+        </dl>
+        <div className="settings-links">
+          {!profile.data.emailVerified && <Link to="/verification-status">Complete email verification</Link>}
+          <Link to="/forgot-password">Reset password</Link>
+        </div>
+      </section>
+    </main>
+  )
+}
+
 export function PublicProfileScreen() {
   const { username = '' } = useParams()
   const profile = useQuery({ queryKey: ['profile', username], queryFn: () => getPublicProfile(username) })

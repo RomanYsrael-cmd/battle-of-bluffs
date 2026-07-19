@@ -21,6 +21,7 @@ import { ApiErrorNotice } from './components/ApiErrorNotice'
 import { FormationScreen } from './features/formation/FormationScreen'
 import { MatchChatPanel } from './features/chat/MatchChatPanel'
 import { HomeScreen } from './features/home/HomeScreen'
+import { LandingScreen } from './features/home/LandingScreen'
 import { ActiveMatchScreen } from './features/match/ActiveMatchScreen'
 import { MatchHeader } from './features/match/MatchHeader'
 import { MatchTimers } from './features/match/MatchTimers'
@@ -38,6 +39,7 @@ import {
 } from './realtime/matchSocket'
 import {
   LeaderboardScreen,
+  AccountSettingsScreen,
   MatchHistoryListScreen,
   MatchHistoryScreen,
   MyProfileScreen,
@@ -247,6 +249,7 @@ function AccountNavigation({ account }: { account: CurrentAccount }) {
         <Link to="/history">History</Link>
         <Link to="/leaderboard">Leaderboard</Link>
         <Link to="/profile">Profile</Link>
+        <Link to="/settings">Settings</Link>
       </nav>
       <span>{account.displayName}</span>
       {!account.emailVerified && <Link to="/verification-status">Verify email</Link>}
@@ -287,6 +290,7 @@ function ApplicationRoutes() {
         </div>
       )}
       <Routes>
+        <Route path="/welcome" element={<LandingScreen />} />
         <Route path="/login" element={<LoginScreen />} />
         <Route path="/register" element={<RegistrationScreen />} />
         <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
@@ -294,11 +298,13 @@ function ApplicationRoutes() {
         <Route path="/verify-email" element={<VerifyEmailScreen />} />
         <Route path="/verification-status" element={<VerificationStatusScreen />} />
         <Route path="/profile" element={<AuthenticatedPage><MyProfileScreen /></AuthenticatedPage>} />
+        <Route path="/settings" element={<AuthenticatedPage><AccountSettingsScreen /></AuthenticatedPage>} />
         <Route path="/players/:username" element={<AuthenticatedPage><PublicProfileScreen /></AuthenticatedPage>} />
         <Route path="/history" element={<AuthenticatedPage><MatchHistoryListScreen /></AuthenticatedPage>} />
         <Route path="/matches/:matchId/history" element={<AuthenticatedPage><MatchHistoryScreen /></AuthenticatedPage>} />
         <Route path="/leaderboard" element={<AuthenticatedPage><LeaderboardScreen /></AuthenticatedPage>} />
-        <Route path="*" element={<AuthenticatedPage><MatchApplication /></AuthenticatedPage>} />
+        <Route path="/" element={<AuthenticatedPage><MatchApplication /></AuthenticatedPage>} />
+        <Route path="*" element={<Navigate to="/welcome" replace />} />
       </Routes>
     </>
   )
