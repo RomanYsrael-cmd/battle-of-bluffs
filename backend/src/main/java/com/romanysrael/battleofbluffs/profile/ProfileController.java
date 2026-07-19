@@ -70,5 +70,6 @@ public class ProfileController {
 
     public record UpdateProfileRequest(
             @NotBlank @Size(min = 2, max = 50) String displayName) {
+        @Override public String toString() { return "UpdateProfileRequest[REDACTED]"; }
     }
 }

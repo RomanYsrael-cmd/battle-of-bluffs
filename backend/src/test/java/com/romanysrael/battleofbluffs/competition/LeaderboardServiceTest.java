@@ -58,6 +58,29 @@ class LeaderboardServiceTest {
         assertThat(page.minimumGames()).isEqualTo(5);
     }
 
+    @Test
+    void extremePageNumberReturnsAnEmptyPageWithoutIntegerOverflow() {
+        RatingSeasonRepository seasons = org.mockito.Mockito.mock(RatingSeasonRepository.class);
+        PlayerRatingRepository ratings = org.mockito.Mockito.mock(PlayerRatingRepository.class);
+        UserAccountRepository accounts = org.mockito.Mockito.mock(UserAccountRepository.class);
+        RatingService ratingService = org.mockito.Mockito.mock(RatingService.class);
+        RatingSeasonEntity season = org.mockito.Mockito.mock(RatingSeasonEntity.class);
+        UUID seasonId = UUID.randomUUID();
+        UUID requesterId = UUID.randomUUID();
+        when(season.getId()).thenReturn(seasonId);
+        when(season.getName()).thenReturn("Season One");
+        when(seasons.findFirstByActiveTrueOrderByStartsAtDesc()).thenReturn(Optional.of(season));
+        when(ratings.findByIdSeasonIdOrderByRatingDescRatedGamesDescIdUserIdAsc(seasonId))
+                .thenReturn(List.of());
+        when(ratings.findByIdUserIdAndIdSeasonId(requesterId, seasonId)).thenReturn(Optional.empty());
+        LeaderboardService service = new LeaderboardService(seasons, ratings, accounts, ratingService);
+
+        LeaderboardService.LeaderboardPage page = service.seasonal(requesterId, Integer.MAX_VALUE, 100);
+
+        assertThat(page.entries()).isEmpty();
+        assertThat(page.page()).isEqualTo(Integer.MAX_VALUE);
+    }
+
     private static PlayerRatingEntity rating(UUID userId, UUID seasonId, int games) {
         PlayerRatingEntity rating = new PlayerRatingEntity(userId, seasonId, NOW);
         for (int index = 0; index < games; index++) {

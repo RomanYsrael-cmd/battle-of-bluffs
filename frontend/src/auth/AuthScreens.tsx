@@ -130,9 +130,12 @@ export function ForgotPasswordScreen() {
 export function ResetPasswordScreen() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const token = params.get('token') ?? ''
+  const [token] = useState(() => params.get('token') ?? '')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<unknown>()
+  useEffect(() => {
+    if (params.has('token')) navigate('/reset-password', { replace: true })
+  }, [navigate, params])
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     setError(undefined)
@@ -157,12 +160,14 @@ export function ResetPasswordScreen() {
 
 export function VerifyEmailScreen() {
   const [params] = useSearchParams()
-  const token = params.get('token') ?? ''
+  const navigate = useNavigate()
+  const [token] = useState(() => params.get('token') ?? '')
   const [account, setAccount] = useState<CurrentAccount>()
   const [error, setError] = useState<unknown>()
   useEffect(() => {
+    if (params.has('token')) navigate('/verify-email', { replace: true })
     if (token) void verifyEmail(token).then(setAccount).catch(setError)
-  }, [token])
+  }, [navigate, params, token])
   return (
     <AuthLayout title="Verify email" subtitle="Verification unlocks ranked matchmaking.">
       {account?.emailVerified && <p className="success-notice" role="status">Email verified. Your account is active.</p>}

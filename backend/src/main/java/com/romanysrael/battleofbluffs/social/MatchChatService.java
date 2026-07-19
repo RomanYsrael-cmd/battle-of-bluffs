@@ -28,6 +28,7 @@ public class MatchChatService {
     private static final Logger LOGGER = LoggerFactory.getLogger(MatchChatService.class);
     private static final int LOCK_STRIPES = 64;
     static final int MAXIMUM_MESSAGE_LENGTH = 500;
+    static final int MAXIMUM_RATE_KEYS = 10_000;
 
     private final MatchApplicationService matches;
     private final MatchChatMessageRepository messages;
@@ -144,8 +145,19 @@ public class MatchChatService {
     }
 
     private void requireRatePermit(UUID matchId, UUID senderId, Instant now) {
-        Deque<Instant> attempts = recentMessages.computeIfAbsent(
-                new RateKey(matchId, senderId), ignored -> new ArrayDeque<>());
+        Deque<Instant> attempts;
+        synchronized (recentMessages) {
+            RateKey rateKey = new RateKey(matchId, senderId);
+            if (!recentMessages.containsKey(rateKey) && recentMessages.size() >= MAXIMUM_RATE_KEYS) {
+                Instant windowStart = now.minus(rateWindow);
+                recentMessages.entrySet().removeIf(entry -> entry.getValue().isEmpty()
+                        || !entry.getValue().peekLast().isAfter(windowStart));
+                if (recentMessages.size() >= MAXIMUM_RATE_KEYS) {
+                    throw new ChatException("CHAT_RATE_LIMITED", "Chat is temporarily busy. Try again later.");
+                }
+            }
+            attempts = recentMessages.computeIfAbsent(rateKey, ignored -> new ArrayDeque<>());
+        }
         Instant windowStart = now.minus(rateWindow);
         while (!attempts.isEmpty() && !attempts.peekFirst().isAfter(windowStart)) {
             attempts.removeFirst();
@@ -155,10 +167,6 @@ public class MatchChatService {
                     "CHAT_RATE_LIMITED", "You can send up to five messages every ten seconds.");
         }
         attempts.addLast(now);
-        if (recentMessages.size() > 10_000) {
-            recentMessages.entrySet().removeIf(entry -> entry.getValue().isEmpty()
-                    || !entry.getValue().peekLast().isAfter(windowStart));
-        }
     }
 
     private void publish(MatchChatMessageEntity message, List<UUID> participants) {
@@ -213,5 +221,9 @@ public class MatchChatService {
             boolean ownMessage,
             String body,
             Instant serverTimestamp) {
+        @Override public String toString() {
+            return "ChatMessageView[id=" + id + ", matchId=" + matchId
+                    + ", sequence=" + sequence + ", content=REDACTED]";
+        }
     }
 }

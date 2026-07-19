@@ -22,3 +22,5 @@ Foreign keys remove dependent private data with deleted users/matches where appr
 `PostgresMatchRepository` restores every persisted aggregate at startup, reconstructs room lookup, marks prior live connections disconnected, evaluates overdue deadlines, and retains accepted command history. The Testcontainers integration test applies Flyway to a fresh PostgreSQL 18 container and proves exact command replay after constructing a new repository instance.
 
 Future schema changes must add a new ordered migration; never edit an already-deployed migration.
+
+Production uses an external non-superuser runtime role. Flyway validation is enabled and Hibernate mutation remains disabled. Require TLS off-host, set role-level statement/lock/idle-transaction timeouts, keep the pool bounded, and protect backups as sensitive: snapshots contain complete formations/ranks and chat/report tables contain moderation evidence.

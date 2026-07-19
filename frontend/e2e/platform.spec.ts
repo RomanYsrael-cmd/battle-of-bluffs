@@ -3,6 +3,7 @@ import { expect, test, type BrowserContext, type Page, type Response } from '@pl
 const runId = process.env.E2E_RUN_ID
   ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`
 const password = 'Strategist!2026'
+const mailpitUrl = process.env.MAILPIT_API_URL ?? 'http://127.0.0.1:8025'
 const accounts = {
   first: {
     username: `alpha_${runId}`,
@@ -241,13 +242,13 @@ async function verificationLink(email: string): Promise<string> {
   const deadline = Date.now() + 20_000
   while (Date.now() < deadline) {
     const search = await fetch(
-      `http://127.0.0.1:8025/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`,
+      `${mailpitUrl}/api/v1/search?query=${encodeURIComponent(`to:${email}`)}`,
     )
     if (search.ok) {
       const result = await search.json() as { messages?: { ID?: string; id?: string }[] }
       const id = result.messages?.[0]?.ID ?? result.messages?.[0]?.id
       if (id) {
-        const response = await fetch(`http://127.0.0.1:8025/api/v1/message/${id}`)
+        const response = await fetch(`${mailpitUrl}/api/v1/message/${id}`)
         const message = await response.json() as { Text?: string; HTML?: string }
         const match = `${message.Text ?? ''}\n${message.HTML ?? ''}`
           .match(/http:\/\/[^\s<]+\/verify-email\?token=[A-Za-z0-9_-]+/)

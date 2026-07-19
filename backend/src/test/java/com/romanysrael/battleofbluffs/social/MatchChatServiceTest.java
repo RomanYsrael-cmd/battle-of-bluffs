@@ -3,6 +3,7 @@ package com.romanysrael.battleofbluffs.social;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -104,6 +105,22 @@ class MatchChatServiceTest {
                 .extracting(exception -> ((ChatException) exception).code())
                 .isEqualTo("CHAT_RATE_LIMITED");
         verify(messages, org.mockito.Mockito.times(5)).saveAndFlush(any());
+    }
+
+    @Test
+    void attackerControlledParticipantKeysCannotGrowTheLimiterPastItsHardBound() {
+        UUID fixedOpponent = UUID.randomUUID();
+        when(matches.participantIds(any(UUID.class), anyString())).thenAnswer(invocation ->
+                List.of(invocation.getArgument(1, String.class), fixedOpponent.toString()));
+
+        for (int index = 0; index < MatchChatService.MAXIMUM_RATE_KEYS; index++) {
+            chat.send(UUID.randomUUID(), UUID.randomUUID(), "message");
+        }
+
+        assertThatThrownBy(() -> chat.send(UUID.randomUUID(), UUID.randomUUID(), "overflow"))
+                .isInstanceOf(ChatException.class)
+                .extracting(exception -> ((ChatException) exception).code())
+                .isEqualTo("CHAT_RATE_LIMITED");
     }
 
     @Test

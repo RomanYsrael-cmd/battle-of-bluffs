@@ -3,8 +3,12 @@ package com.romanysrael.battleofbluffs.shared.config;
 import com.romanysrael.battleofbluffs.user.AccountUserDetailsService;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
+import java.time.Clock;
+import java.time.Duration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -23,6 +27,11 @@ import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 public class SecurityConfig {
@@ -60,12 +69,19 @@ public class SecurityConfig {
             HttpSecurity http,
             SessionRegistry sessionRegistry,
             SecurityContextRepository securityContextRepository,
-            AccountUserDetailsService accountUserDetailsService) throws Exception {
+            AccountUserDetailsService accountUserDetailsService,
+            CorsConfigurationSource corsConfigurationSource,
+            ObjectProvider<Clock> clock,
+            @org.springframework.beans.factory.annotation.Value("${app.session.absolute-timeout:12h}")
+            Duration absoluteSessionTimeout,
+            @org.springframework.beans.factory.annotation.Value("${app.allowed-hosts:localhost,127.0.0.1}")
+            String allowedHosts) throws Exception {
         HttpSessionCsrfTokenRepository csrfRepository = new HttpSessionCsrfTokenRepository();
         CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
         csrfHandler.setCsrfRequestAttributeName(null);
 
         return http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(csrf -> csrf
                         .ignoringRequestMatchers("/api/dev/**")
                         .csrfTokenRepository(csrfRepository)
@@ -80,6 +96,17 @@ public class SecurityConfig {
                         .sessionRegistry(sessionRegistry))
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
+                .headers(headers -> headers
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(
+                                "default-src 'self'; base-uri 'self'; object-src 'none'; "
+                                        + "frame-ancestors 'none'; form-action 'self'; "
+                                        + "img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+                                        + "script-src 'self'; connect-src 'self'"))
+                        .referrerPolicy(referrer -> referrer.policy(
+                                ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
+                        .addHeaderWriter(new StaticHeadersWriter(
+                                "Permissions-Policy",
+                                "camera=(), microphone=(), geolocation=(), payment=(), usb=()")))
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
                         .invalidateHttpSession(true)
@@ -108,7 +135,29 @@ public class SecurityConfig {
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(new AccountStatusFilter(accountUserDetailsService), AuthorizationFilter.class)
+                .addFilterBefore(new AllowedHostFilter(allowedHosts), AccountStatusFilter.class)
+                .addFilterBefore(new RequestCorrelationFilter(), AllowedHostFilter.class)
+                .addFilterAfter(
+                        new AbsoluteSessionLifetimeFilter(
+                                clock.getIfAvailable(Clock::systemUTC), absoluteSessionTimeout),
+                        AccountStatusFilter.class)
                 .build();
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource(
+            @org.springframework.beans.factory.annotation.Value("${app.frontend-url:http://localhost:5173}")
+            String frontendUrl) {
+        String origin = frontendUrl.replaceAll("/+$", "");
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of(origin));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Content-Type", "X-CSRF-TOKEN", "X-Request-ID"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(600L);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", configuration);
+        return source;
     }
 
     private static void writeError(HttpServletResponse response, int status, String code, String message)

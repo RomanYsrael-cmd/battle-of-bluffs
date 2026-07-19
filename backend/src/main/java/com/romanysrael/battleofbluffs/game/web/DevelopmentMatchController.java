@@ -119,7 +119,12 @@ public final class DevelopmentMatchController {
     public record FormationRequest(
             @NotNull UUID commandId, @NotBlank String playerId,
             @Positive long expectedVersion,
-            @NotNull @Size(min = 21, max = 21) List<@Valid FormationItem> pieces) { }
+            @NotNull @Size(min = 21, max = 21) List<@Valid FormationItem> pieces) {
+        @Override public String toString() {
+            return "FormationRequest[commandId=" + commandId + ", expectedVersion="
+                    + expectedVersion + ", pieces=REDACTED]";
+        }
+    }
 
     public record MoveRequest(
             @NotNull UUID commandId, @NotBlank String playerId,

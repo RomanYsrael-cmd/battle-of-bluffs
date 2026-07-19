@@ -18,7 +18,7 @@ public final class DevelopmentApiExceptionHandler {
             case "ACCOUNT_CONFLICT" -> HttpStatus.CONFLICT;
             case "RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
             case "AUTHENTICATION_REQUIRED", "INVALID_CREDENTIALS" -> HttpStatus.UNAUTHORIZED;
-            case "ACCOUNT_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "ACCOUNT_NOT_FOUND", "MATCH_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "INVALID_TOKEN", "INVALID_ACCOUNT_INPUT" -> HttpStatus.BAD_REQUEST;
             default -> HttpStatus.BAD_REQUEST;
         };
@@ -75,7 +75,7 @@ public final class DevelopmentApiExceptionHandler {
     @ExceptionHandler({IllegalArgumentException.class, org.springframework.http.converter.HttpMessageNotReadableException.class})
     ResponseEntity<ApiError> badRequest(Exception exception) {
         return ResponseEntity.badRequest().body(new ApiError(
-                "INVALID_REQUEST", exception.getMessage(), Instant.now()));
+                "INVALID_REQUEST", "The request was malformed.", Instant.now()));
     }
 
     public record ApiError(String code, String message, Instant timestamp, Object context) {

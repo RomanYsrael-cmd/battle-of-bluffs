@@ -17,6 +17,10 @@ public record PlayerMatchView(UUID matchId, String roomCode, long version, long 
                               PendingChallengeView pendingFlagChallenge, TerminalResult terminalResult,
                               List<RevealedPieceView> postMatchPieces,
                               TimerView timer, PresenceView presence) {
+    @Override public String toString() {
+        return "PlayerMatchView[matchId=" + matchId + ", version=" + version
+                + ", phase=" + phase + ", privateState=REDACTED]";
+    }
     public record OwnPieceView(UUID id, Rank rank, Position position, boolean alive) { }
     public record OpponentPieceView(UUID id, Position position) { }
     public record RevealedPieceView(UUID id, PlayerSide owner, Rank rank, Position position, boolean alive) { }

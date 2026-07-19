@@ -217,7 +217,7 @@ public class LeaderboardService {
             LeaderboardEntry own,
             int page,
             int size) {
-        int from = Math.min(page * size, entries.size());
+        int from = (int) Math.min((long) page * size, entries.size());
         int to = Math.min(from + size, entries.size());
         int totalPages = entries.isEmpty() ? 0 : (entries.size() + size - 1) / size;
         return new LeaderboardPage(

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public final class AccountRateLimiter {
+    static final int MAXIMUM_KEYS = 10_000;
     private final ConcurrentHashMap<String, Window> windows = new ConcurrentHashMap<>();
     private final Clock clock;
     private final Limit registration;
@@ -57,22 +58,28 @@ public final class AccountRateLimiter {
         requirePermit("reset-password", clientKey, resetPassword);
     }
 
-    private void requirePermit(String category, String key, Limit limit) {
+    private synchronized void requirePermit(String category, String key, Limit limit) {
         Instant now = clock.instant();
         String bucket = category + ':' + key;
-        Window updated = windows.compute(bucket, (ignored, current) -> {
-            if (current == null || !now.isBefore(current.startedAt().plus(limit.window()))) {
-                return new Window(now, 1);
+        if (!windows.containsKey(bucket) && windows.size() >= MAXIMUM_KEYS) {
+            removeExpired(now);
+            if (windows.size() >= MAXIMUM_KEYS) {
+                throw new AccountException("RATE_LIMITED", "Too many requests. Try again later.");
             }
-            return new Window(current.startedAt(), current.count() + 1);
+        }
+        Window updated = windows.compute(bucket, (ignored, current) -> {
+            if (current == null || !now.isBefore(current.expiresAt())) {
+                return new Window(now.plus(limit.window()), 1);
+            }
+            return new Window(current.expiresAt(), current.count() + 1);
         });
         if (updated.count() > limit.maximum()) {
             throw new AccountException("RATE_LIMITED", "Too many requests. Try again later.");
         }
-        if (windows.size() > 10_000) {
-            windows.entrySet().removeIf(entry ->
-                    !now.isBefore(entry.getValue().startedAt().plus(limit.window())));
-        }
+    }
+
+    private void removeExpired(Instant now) {
+        windows.entrySet().removeIf(entry -> !now.isBefore(entry.getValue().expiresAt()));
     }
 
     private record Limit(int maximum, Duration window) {
@@ -83,6 +90,6 @@ public final class AccountRateLimiter {
         }
     }
 
-    private record Window(Instant startedAt, int count) {
+    private record Window(Instant expiresAt, int count) {
     }
 }

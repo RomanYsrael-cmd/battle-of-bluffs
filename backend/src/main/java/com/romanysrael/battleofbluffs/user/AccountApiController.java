@@ -7,7 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import java.util.Map;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.AuthenticationException;
@@ -61,6 +61,7 @@ public class AccountApiController {
             HttpServletRequest servletRequest,
             HttpServletResponse servletResponse) {
         rateLimiter.requireLogin(clientKey(servletRequest));
+        rateLimiter.requireLogin("account:" + normalizeLogin(request.login()));
         Authentication authentication;
         try {
             authentication = authenticationManager.authenticate(
@@ -85,8 +86,8 @@ public class AccountApiController {
     }
 
     @GetMapping("/csrf")
-    Map<String, String> csrf(CsrfToken csrfToken) {
-        return Map.of("headerName", csrfToken.getHeaderName(), "token", csrfToken.getToken());
+    CsrfView csrf(CsrfToken csrfToken) {
+        return new CsrfView(csrfToken.getHeaderName(), csrfToken.getToken());
     }
 
     @PostMapping("/verify-email")
@@ -129,28 +130,46 @@ public class AccountApiController {
     }
 
     private static String clientKey(HttpServletRequest request) {
-        return request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr();
+        return "ip:" + (request.getRemoteAddr() == null ? "unknown" : request.getRemoteAddr());
+    }
+
+    private static String normalizeLogin(String login) {
+        return java.text.Normalizer.normalize(login, java.text.Normalizer.Form.NFKC)
+                .strip().toLowerCase(java.util.Locale.ROOT);
     }
 
     public record RegistrationRequest(
-            @NotBlank String username,
-            @NotBlank @Email String email,
-            @NotBlank String password,
-            @NotBlank String displayName) {
+            @NotBlank @Size(max = 32) String username,
+            @NotBlank @Email @Size(max = 320) String email,
+            @NotBlank @Size(max = 72) String password,
+            @NotBlank @Size(max = 50) String displayName) {
+        @Override public String toString() { return "RegistrationRequest[REDACTED]"; }
     }
 
-    public record LoginRequest(@NotBlank String login, @NotBlank String password) {
+    public record LoginRequest(
+            @NotBlank @Size(max = 320) String login,
+            @NotBlank @Size(max = 72) String password) {
+        @Override public String toString() { return "LoginRequest[REDACTED]"; }
     }
 
-    public record TokenRequest(@NotBlank String token) {
+    public record TokenRequest(@NotBlank @Size(max = 128) String token) {
+        @Override public String toString() { return "TokenRequest[REDACTED]"; }
     }
 
-    public record ForgotPasswordRequest(@NotBlank @Email String email) {
+    public record ForgotPasswordRequest(@NotBlank @Email @Size(max = 320) String email) {
+        @Override public String toString() { return "ForgotPasswordRequest[REDACTED]"; }
     }
 
-    public record ResetPasswordRequest(@NotBlank String token, @NotBlank String password) {
+    public record ResetPasswordRequest(
+            @NotBlank @Size(max = 128) String token,
+            @NotBlank @Size(max = 72) String password) {
+        @Override public String toString() { return "ResetPasswordRequest[REDACTED]"; }
     }
 
     public record GenericMessage(String message) {
+    }
+
+    public record CsrfView(String headerName, String token) {
+        @Override public String toString() { return "CsrfView[headerName=" + headerName + ", token=REDACTED]"; }
     }
 }

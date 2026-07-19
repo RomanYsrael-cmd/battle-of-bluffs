@@ -49,3 +49,5 @@ docker compose --env-file .env -f infra/compose.yaml stop
 ## Development compatibility profile
 
 `SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run` additionally exposes `/api/dev/**` and a small development-only identity path. It is absent in the normal profile and is never required by the frontend or E2E suite.
+
+The sample credentials and Mailpit are development-only. Compose binds PostgreSQL, SMTP and the Mailpit UI to `127.0.0.1`; do not widen those bindings on a shared network. Never combine `dev` and `prod`. See [production-deployment-security.md](production-deployment-security.md) for production configuration.

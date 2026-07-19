@@ -22,7 +22,7 @@ Security does not depend on disabled controls or hidden DOM. Clients cannot clai
 
 ## Error and logging policy
 
-API errors use a stable code, safe message and timestamp. Authentication failures do not distinguish username, email, status or password. Unexpected stack details are not returned. Application logs identify persisted match/message/account UUIDs only where operationally necessary; verification/reset secrets, passwords, cookies and CSRF values are never logged by application code.
+API errors use a stable code, safe message and timestamp. Authentication failures do not distinguish username, email, status or password. Unexpected stack details are not returned. Each HTTP response carries a sanitized or generated `X-Request-ID`; production log levels include the same correlation value. Application logs identify persisted match/message/account UUIDs only where operationally necessary; verification/reset secrets, passwords, cookies and CSRF values are never logged by application code.
 
 `.env` is ignored. `.env.example` contains development placeholders only. Dependency manifests contain no credentials. SMTP and datasource values come from environment-backed configuration.
 
@@ -35,3 +35,18 @@ The Playwright security flow repeats outsider REST/STOMP denial in a real browse
 ## Limitations
 
 Rate limits, WebSocket broker and ranked queue are single-instance controls. They are appropriate for this milestone, not a claim of horizontally scaled abuse resistance. There is no administrator console, external identity provider, production secrets manager, WAF, Redis or media channel.
+
+## Production controls and verification
+
+The `prod` profile is fail-closed: database/SMTP credentials, sender and the exact HTTPS frontend origin are mandatory; Secure `__Host-GOTGSESSION` cookies, SMTP STARTTLS, Flyway validation, safe errors and health-only Actuator exposure cannot inherit development defaults. Forwarded headers are disabled. Deployment, proxy, database, backup and rotation requirements are in [production-deployment-security.md](production-deployment-security.md).
+
+Responses set CSP, frame restrictions, nosniff, no-referrer and a restrictive Permissions-Policy. HSTS applies on secure requests, not ordinary HTTP development. CSP permits inline styles for one current dynamic progress indicator, but never inline scripts or `unsafe-eval`.
+
+```bash
+cd backend && ./mvnw test && ./mvnw dependency:analyze
+cd ../frontend && npm ci && npm test -- --run && npm run build && npm run test:e2e
+npm audit --omit=dev --audit-level=high
+cd .. && git diff --check
+```
+
+See [security-audit-production.md](security-audit-production.md) for evidence and residual risk. This project does not claim formal certification or guaranteed security.

@@ -19,6 +19,7 @@ import com.romanysrael.battleofbluffs.user.AccountStatus;
 import com.romanysrael.battleofbluffs.user.UserAccountEntity;
 import com.romanysrael.battleofbluffs.user.UserAccountRepository;
 import java.time.Instant;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -70,7 +71,8 @@ public class ProfileService {
     @Transactional(readOnly = true)
     public PublicProfileView publicProfile(String username) {
         UserAccountEntity account = accounts.findByNormalizedUsername(
-                        username.strip().toLowerCase(Locale.ROOT))
+                        Normalizer.normalize(username, Normalizer.Form.NFKC)
+                                .strip().toLowerCase(Locale.ROOT))
                 .filter(candidate -> candidate.getAccountStatus() != AccountStatus.DELETED)
                 .orElseThrow(() -> new AccountException("ACCOUNT_NOT_FOUND", "Profile not found."));
         List<MatchSummary> summaries = playerMatches(account.getId());
@@ -100,6 +102,9 @@ public class ProfileService {
     public MatchHistoryView history(UUID matchId, UUID requesterId) {
         MatchSummary summary = matches.summary(matchId);
         boolean participant = summary.participants().containsValue(requesterId.toString());
+        if (!participant && summary.phase() != MatchPhase.TERMINAL) {
+            throw new AccountException("MATCH_NOT_FOUND", "Match not found.");
+        }
         MatchAggregateEntity aggregate = aggregates.findById(matchId).orElse(null);
         if (summary.mode() == MatchMode.RANKED && summary.phase() == MatchPhase.TERMINAL) {
             ratings.apply(summary);
@@ -129,7 +134,7 @@ public class ProfileService {
                         Comparator.reverseOrder()))
                 .map(summary -> listItem(userId, summary, metadata.get(summary.matchId())))
                 .toList();
-        int from = Math.min(page * size, ordered.size());
+        int from = (int) Math.min((long) page * size, ordered.size());
         int to = Math.min(from + size, ordered.size());
         int totalPages = ordered.isEmpty() ? 0 : (ordered.size() + size - 1) / size;
         return new PageView<>(

@@ -1,6 +1,8 @@
+name: battle-of-bluffs-development
+
 services:
   postgres:
-    image: postgres:18
+    image: postgres:18.4
     container_name: battle-of-bluffs-postgres
     restart: unless-stopped
     environment:
@@ -8,7 +10,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-battle_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-development_password}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - battle_postgres_data:/var/lib/postgresql
     healthcheck:
@@ -23,8 +25,8 @@ services:
     container_name: battle-of-bluffs-mailpit
     restart: unless-stopped
     ports:
-      - "1025:1025"
-      - "8025:8025"
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
     healthcheck:
       test: ["CMD", "/mailpit", "readyz"]
       interval: 5s

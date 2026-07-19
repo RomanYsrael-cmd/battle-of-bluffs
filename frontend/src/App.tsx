@@ -361,11 +361,18 @@ function AuthenticatedPage({ children }: { children: ReactNode }) {
 
 function ApplicationRoutes() {
   const [sessionExpired, setSessionExpired] = useState(false)
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
   useEffect(() => {
-    const expired = () => setSessionExpired(true)
+    const expired = () => {
+      clearSession()
+      queryClient.clear()
+      setSessionExpired(true)
+      navigate('/login', { replace: true })
+    }
     window.addEventListener('gotg:session-expired', expired)
     return () => window.removeEventListener('gotg:session-expired', expired)
-  }, [])
+  }, [navigate, queryClient])
   return (
     <>
       {sessionExpired && (
