@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { createInventory } from './ranks'
-import { isPlayerOneFormationPosition } from './coordinates'
+import {
+  isFormationPosition,
+  isPlayerOneFormationPosition,
+  isPlayerTwoFormationPosition,
+  visualPositionsFor,
+} from './coordinates'
 import { isValidFormation, placeOrSwap, type Placements } from './formation'
 
 describe('formation rules', () => {
@@ -18,6 +23,23 @@ describe('formation rules', () => {
     expect(isPlayerOneFormationPosition({ row: 2, column: 8 })).toBe(true)
     expect(isPlayerOneFormationPosition({ row: 3, column: 0 })).toBe(false)
     expect(isPlayerOneFormationPosition({ row: 7, column: 8 })).toBe(false)
+  })
+
+  it('accepts only canonical Player 2 formation rows', () => {
+    expect(isPlayerTwoFormationPosition({ row: 5, column: 0 })).toBe(true)
+    expect(isPlayerTwoFormationPosition({ row: 7, column: 8 })).toBe(true)
+    expect(isPlayerTwoFormationPosition({ row: 4, column: 0 })).toBe(false)
+    expect(isFormationPosition({ row: 6, column: 4 }, 'PLAYER_TWO')).toBe(true)
+  })
+
+  it('rotates visual rows for Player 2 without changing canonical coordinates', () => {
+    const playerOne = visualPositionsFor('PLAYER_ONE')
+    const playerTwo = visualPositionsFor('PLAYER_TWO')
+    expect(playerOne[0]).toEqual({ row: 7, column: 0 })
+    expect(playerOne.at(-1)).toEqual({ row: 0, column: 8 })
+    expect(playerTwo[0]).toEqual({ row: 0, column: 0 })
+    expect(playerTwo.at(-1)).toEqual({ row: 7, column: 8 })
+    expect(new Set(playerTwo.map(({ row, column }) => `${row}:${column}`)).size).toBe(72)
   })
 
   it('recognizes a complete formation with exactly six empty deployment cells', () => {

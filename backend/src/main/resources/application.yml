@@ -14,6 +14,55 @@ spring:
     hibernate:
       ddl-auto: none
     open-in-view: false
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS:false}
+
+server:
+  servlet:
+    session:
+      timeout: 12h
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${SESSION_COOKIE_SECURE:false}
+
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  mail:
+    from: ${MAIL_FROM:no-reply@games-of-the-generals.local}
+  match:
+    formation-limit: ${RANKED_FORMATION_LIMIT:5m}
+    initial-clock: ${RANKED_INITIAL_CLOCK:15m}
+    move-increment: ${RANKED_MOVE_INCREMENT:5s}
+    disconnect-grace: ${RANKED_DISCONNECT_GRACE:60s}
+    ranked-cumulative-disconnect-limit: ${RANKED_CUMULATIVE_DISCONNECT_LIMIT:120s}
+    deadline-evaluation-ms: ${MATCH_DEADLINE_EVALUATION_MS:250}
+    timer-sync-ms: ${MATCH_TIMER_SYNC_MS:30000}
+  rate-limit:
+    registration:
+      limit: ${REGISTER_RATE_LIMIT:5}
+      window: ${REGISTER_RATE_WINDOW:1h}
+    login:
+      limit: ${LOGIN_RATE_LIMIT:10}
+      window: ${LOGIN_RATE_WINDOW:15m}
+    resend-verification:
+      limit: ${VERIFICATION_RATE_LIMIT:3}
+      window: ${VERIFICATION_RATE_WINDOW:1h}
+    forgot-password:
+      limit: ${FORGOT_PASSWORD_RATE_LIMIT:5}
+      window: ${FORGOT_PASSWORD_RATE_WINDOW:1h}
+    reset-password:
+      limit: ${RESET_PASSWORD_RATE_LIMIT:10}
+      window: ${RESET_PASSWORD_RATE_WINDOW:15m}
+    chat:
+      limit: ${CHAT_RATE_LIMIT:5}
+      window: ${CHAT_RATE_WINDOW:10s}
 
 management:
   endpoints:

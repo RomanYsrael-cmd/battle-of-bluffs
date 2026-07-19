@@ -9,7 +9,8 @@ public record TerminalResult(PlayerSide winner, TerminalReason reason) {
         if (winner == null && reason != TerminalReason.THREEFOLD_REPETITION
                 && reason != TerminalReason.MOVE_LIMIT
                 && reason != TerminalReason.MUTUAL_DRAW
-                && reason != TerminalReason.NO_CONTEST) {
+                && reason != TerminalReason.NO_CONTEST
+                && reason != TerminalReason.ROOM_CANCELLED) {
             throw new IllegalArgumentException("This terminal reason requires a winner");
         }
     }

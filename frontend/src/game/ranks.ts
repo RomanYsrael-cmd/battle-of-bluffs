@@ -37,11 +37,11 @@ export const RANK_LABELS: Record<Rank, string> = {
 }
 
 export const RANK_ABBREVIATIONS: Record<Rank, string> = {
-  FIVE_STAR_GENERAL: '5★',
-  FOUR_STAR_GENERAL: '4★',
-  THREE_STAR_GENERAL: '3★',
-  TWO_STAR_GENERAL: '2★',
-  ONE_STAR_GENERAL: '1★',
+  FIVE_STAR_GENERAL: '5-STAR',
+  FOUR_STAR_GENERAL: '4-STAR',
+  THREE_STAR_GENERAL: '3-STAR',
+  TWO_STAR_GENERAL: '2-STAR',
+  ONE_STAR_GENERAL: '1-STAR',
   COLONEL: 'COL',
   LIEUTENANT_COLONEL: 'LTC',
   MAJOR: 'MAJ',
@@ -51,7 +51,7 @@ export const RANK_ABBREVIATIONS: Record<Rank, string> = {
   SERGEANT: 'SGT',
   PRIVATE: 'PVT',
   SPY: 'SPY',
-  FLAG: '⚑',
+  FLAG: 'FLAG',
 }
 
 const INVENTORY_QUANTITIES: Record<Rank, number> = {
@@ -78,10 +78,9 @@ export interface LocalPiece {
 }
 
 export const createInventory = (): LocalPiece[] => {
-  let sequence = 0
   return RANKS.flatMap((rank) =>
     Array.from({ length: INVENTORY_QUANTITIES[rank] }, () => ({
-      id: `piece-${String(++sequence).padStart(2, '0')}`,
+      id: crypto.randomUUID(),
       rank,
     })),
   )
