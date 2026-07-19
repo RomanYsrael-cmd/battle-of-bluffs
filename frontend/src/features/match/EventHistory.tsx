@@ -17,6 +17,8 @@ export const describeEvent = (event: EventView): string => {
     case 'BATTLE_RESOLVED': return `Battle at ${position(event.destination)}: ${(event.ownBattleOutcome ?? 'resolved').replaceAll('_', ' ').toLowerCase()}.`
     case 'FLAG_CHALLENGE_STARTED': return `Flag challenge opened at ${position(event.destination)}.`
     case 'PLAYER_RESIGNED': return `${sideName(event.actor)} resigned.`
+    case 'PLAYER_LEFT': return `${sideName(event.actor)} left the lobby.`
+    case 'ROOM_CANCELLED': return 'The private room was cancelled.'
     case 'MATCH_ENDED': return `Match ended: ${event.terminalResult?.reason.replaceAll('_', ' ').toLowerCase() ?? 'complete'}.`
   }
 }

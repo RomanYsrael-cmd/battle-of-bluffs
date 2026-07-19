@@ -6,6 +6,8 @@ import type {
   ModerationStatus,
   ReportCategory,
   ReportReceipt,
+  CurrentMatchesResponse,
+  LifecycleResponse,
 } from './types'
 import type { Position } from '../game/coordinates'
 import { apiRequest, HttpApiError } from './http'
@@ -24,12 +26,17 @@ export const ERROR_MESSAGES: Record<string, string> = {
   TERMINAL_MATCH: 'This match has already ended.',
   INVALID_ROOM_STATE: 'That action is not available in the current match phase.',
   INVALID_REQUEST: 'The request was incomplete or invalid.',
+  OPEN_MATCH_EXISTS: 'You already have a game in progress.',
   AUTHENTICATION_REQUIRED: 'Sign in to continue.',
   SERVER_UNAVAILABLE: 'The game server is unavailable. Check that the backend is running.',
 }
 
 export class MatchApiError extends Error {
-  constructor(public readonly code: string, public readonly status: number) {
+  constructor(
+    public readonly code: string,
+    public readonly status: number,
+    public readonly context: unknown = null,
+  ) {
     super(ERROR_MESSAGES[code] ?? 'The match server could not complete that action.')
     this.name = 'MatchApiError'
   }
@@ -39,7 +46,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     return await apiRequest<T>(`${MATCHES_URL}${path}`, init)
   } catch (error) {
-    if (error instanceof HttpApiError) throw new MatchApiError(error.code, error.status)
+    if (error instanceof HttpApiError) {
+      throw new MatchApiError(error.code, error.status, error.context)
+    }
     throw new MatchApiError('SERVER_UNAVAILABLE', 0)
   }
 }
@@ -50,10 +59,24 @@ Promise<CommandResponse> => request('', { method: 'POST', body: JSON.stringify({
 export const joinMatch = (roomCode: string): Promise<CommandResponse> =>
   request('/join', {
     method: 'POST',
-    body: JSON.stringify({ commandId: crypto.randomUUID(), roomCode, expectedVersion: 1 }),
+    body: JSON.stringify({ commandId: crypto.randomUUID(), roomCode }),
   })
 
 export const getPlayerView = (matchId: string): Promise<PlayerMatchView> => request(`/${matchId}`)
+
+export const getCurrentMatches = (): Promise<CurrentMatchesResponse> => request('/current')
+
+export const cancelMatch = (matchId: string, expectedVersion: number): Promise<LifecycleResponse> =>
+  request(`/${matchId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ commandId: crypto.randomUUID(), expectedVersion }),
+  })
+
+export const leaveMatch = (matchId: string, expectedVersion: number): Promise<LifecycleResponse> =>
+  request(`/${matchId}/leave`, {
+    method: 'POST',
+    body: JSON.stringify({ commandId: crypto.randomUUID(), expectedVersion }),
+  })
 
 export const submitFormation = (
   matchId: string,

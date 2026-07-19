@@ -59,6 +59,8 @@ Register an account, open its verification message in Mailpit, and follow the `h
 
 For a casual match, sign in from two separate browser profiles or private contexts. One player creates a room and shares its six-character code; the other joins. Both place exactly 21 pieces, submit, lock, make legal canonical-coordinate moves, and may chat, block, report or resign.
 
+Open matches are recovered from the authenticated account, not from browser storage. The play dashboard shows every current lobby or match and the navigation bar keeps a compact Continue Game indicator on other account screens. Before play begins, a host may cancel its casual room; an unlocked guest may leave and free Player 2 for a replacement. Host departure cancels the room. Once play is active—or for any ranked pairing—the match must be resumed and may end only through the normal resignation, clock, disconnect, or game-result rules. A cancelled room uses `ROOM_CANCELLED` and affects neither ratings nor game statistics.
+
 For ranked play, two verified players select **Enter ranked queue**. The range begins at ±200 rating and expands by 50 every 30 seconds to ±600. Pairing creates a persistent 15+5 match without a room code.
 
 The server owns versions, idempotency, formations, moves, battles, clocks, presence, terminal results and rating changes. Player 2 sees a rotated board, but requests always use canonical coordinates. Active opponent ranks and authoritative IDs are never sent; complete formations are disclosed to participants only after termination.
@@ -89,7 +91,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Playwright retrieves verification messages from Mailpit and covers accounts, casual play, ranked rating application, outsider denial, hidden-rank secrecy and inert hostile chat text.
+Playwright retrieves verification messages from Mailpit and covers accounts, abandoned-lobby recovery, cancellation and seat reuse, casual play, ranked rating application, outsider denial, hidden-rank secrecy and inert hostile chat text.
 
 ## Development-only API
 
@@ -98,6 +100,7 @@ The client-supplied identity compatibility API under `/api/dev/**` exists only w
 ## Current limitations
 
 - Ranked queue entries are in memory and intentionally single-instance; created matches are persistent.
+- Private lobbies have explicit owner cancellation but no automatic inactivity expiry yet; stale-lobby cleanup remains a future configurable policy.
 - No administrator moderation UI is included.
 - No production deployment, OAuth, spectators, matchmaking clusters, Redis, video or voice is included.
 - Email delivery is SMTP-only; Mailpit is the supported local target.

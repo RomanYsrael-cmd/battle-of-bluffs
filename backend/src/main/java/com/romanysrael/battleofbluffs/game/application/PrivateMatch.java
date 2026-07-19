@@ -27,6 +27,9 @@ final class PrivateMatch {
     Instant formationDeadline;
     Instant turnStartedAt;
     Instant turnDeadline;
+    Instant participantCycleStartedAt;
+    Instant createdAt;
+    Instant updatedAt;
 
     PrivateMatch(UUID id, String roomCode, String creator) {
         this(id, roomCode, creator, MatchMode.CASUAL, TimerMode.CASUAL_UNTIMED);
@@ -43,6 +46,8 @@ final class PrivateMatch {
         this.mode = mode;
         this.timerMode = timerMode;
         players.put(PlayerSide.PLAYER_ONE, creator);
+        createdAt = Instant.now();
+        updatedAt = createdAt;
     }
 
     PlayerSide sideOf(String playerId) {
@@ -59,5 +64,18 @@ final class PrivateMatch {
         }
     }
 
-    record StoredCommand(CommandFingerprint fingerprint, MatchCommandResult result) { }
+    record StoredCommand(
+            CommandFingerprint fingerprint,
+            MatchCommandResult result,
+            MatchLifecycleResult lifecycleResult) {
+        static StoredCommand match(
+                CommandFingerprint fingerprint, MatchCommandResult result) {
+            return new StoredCommand(fingerprint, result, null);
+        }
+
+        static StoredCommand lifecycle(
+                CommandFingerprint fingerprint, MatchLifecycleResult result) {
+            return new StoredCommand(fingerprint, null, result);
+        }
+    }
 }

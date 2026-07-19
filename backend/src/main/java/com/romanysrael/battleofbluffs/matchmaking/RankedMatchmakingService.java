@@ -58,9 +58,13 @@ public class RankedMatchmakingService {
         if (activeRanked != null) {
             return found(activeRanked);
         }
-        if (matches.hasActiveMatch(userId.toString())) {
+        List<MatchApplicationService.CurrentMatchSummary> blockingMatches =
+                matches.currentMatches(userId.toString());
+        if (!blockingMatches.isEmpty()) {
             throw new MatchmakingException(
-                    "ACTIVE_MATCH", "Finish the current match before joining ranked matchmaking.");
+                    "OPEN_MATCH_EXISTS",
+                    "You already have a game in progress.",
+                    new OpenMatchRecovery(blockingMatches));
         }
         UserAccountEntity account = verifiedAccount(userId);
         Instant now = clock.instant();
@@ -209,6 +213,13 @@ public class RankedMatchmakingService {
             UUID matchId) {
         static QueueStatus idle() {
             return new QueueStatus("IDLE", null, 0, 0, 0, null);
+        }
+    }
+
+    public record OpenMatchRecovery(
+            List<MatchApplicationService.CurrentMatchSummary> blockingMatches) {
+        public OpenMatchRecovery {
+            blockingMatches = List.copyOf(blockingMatches);
         }
     }
 }

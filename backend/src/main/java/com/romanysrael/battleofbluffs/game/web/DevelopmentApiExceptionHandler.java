@@ -43,11 +43,11 @@ public final class DevelopmentApiExceptionHandler {
         HttpStatus status = switch (exception.code()) {
             case "ACCOUNT_NOT_FOUND" -> HttpStatus.NOT_FOUND;
             case "EMAIL_VERIFICATION_REQUIRED" -> HttpStatus.FORBIDDEN;
-            case "ACTIVE_MATCH" -> HttpStatus.CONFLICT;
+            case "ACTIVE_MATCH", "OPEN_MATCH_EXISTS" -> HttpStatus.CONFLICT;
             default -> HttpStatus.BAD_REQUEST;
         };
         return ResponseEntity.status(status).body(new ApiError(
-                exception.code(), exception.getMessage(), Instant.now()));
+                exception.code(), exception.getMessage(), Instant.now(), exception.context()));
     }
 
     @ExceptionHandler(MatchApplicationException.class)
@@ -56,7 +56,7 @@ public final class DevelopmentApiExceptionHandler {
             case MATCH_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case PLAYER_NOT_IN_MATCH, BLOCKED_RELATION -> HttpStatus.FORBIDDEN;
             case STALE_VERSION, COMMAND_CONFLICT, MATCH_FULL, ALREADY_LOCKED,
-                    TERMINAL_MATCH, INVALID_ROOM_STATE -> HttpStatus.CONFLICT;
+                    TERMINAL_MATCH, INVALID_ROOM_STATE, OPEN_MATCH_EXISTS -> HttpStatus.CONFLICT;
             case INVALID_FORMATION, ILLEGAL_MOVE -> HttpStatus.UNPROCESSABLE_CONTENT;
         };
         return ResponseEntity.status(status).body(new ApiError(
@@ -78,5 +78,9 @@ public final class DevelopmentApiExceptionHandler {
                 "INVALID_REQUEST", exception.getMessage(), Instant.now()));
     }
 
-    public record ApiError(String code, String message, Instant timestamp) { }
+    public record ApiError(String code, String message, Instant timestamp, Object context) {
+        public ApiError(String code, String message, Instant timestamp) {
+            this(code, message, timestamp, null);
+        }
+    }
 }

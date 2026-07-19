@@ -3,6 +3,8 @@ package com.romanysrael.battleofbluffs.game.websocket;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.romanysrael.battleofbluffs.game.application.Commands.CreateMatchCommand;
@@ -30,6 +32,7 @@ class MatchSubscriptionInterceptorTest {
     private UUID memberId;
     private UUID matchId;
     private AccountUserDetailsService accounts;
+    private MatchPresenceCoordinator presence;
 
     @BeforeEach
     void setUp() {
@@ -48,14 +51,27 @@ class MatchSubscriptionInterceptorTest {
                 .thenAnswer(invocation -> principal(
                         UUID.fromString(invocation.getArgument(0, String.class).substring(5)),
                         AccountStatus.ACTIVE));
-        interceptor = new MatchSubscriptionInterceptor(
-                provider, accountProvider, mock(MatchPresenceCoordinator.class));
+        presence = mock(MatchPresenceCoordinator.class);
+        interceptor = new MatchSubscriptionInterceptor(provider, accountProvider, presence);
     }
 
     @Test
     void participantMaySubscribeToTheirOwnMatchUpdates() {
         assertDoesNotThrow(() -> interceptor.preSend(
                 subscription(matchId, memberId), mock(MessageChannel.class)));
+    }
+
+    @Test
+    void presenceStartsOnlyAfterTheBrokerAcceptsTheMatchSubscription() {
+        Message<byte[]> subscription = subscription(matchId, memberId);
+        MessageChannel channel = mock(MessageChannel.class);
+
+        interceptor.preSend(subscription, channel);
+        verify(presence, never()).subscribed(
+                matchId, memberId.toString(), "session-1");
+
+        interceptor.postSend(subscription, channel, true);
+        verify(presence).subscribed(matchId, memberId.toString(), "session-1");
     }
 
     @Test

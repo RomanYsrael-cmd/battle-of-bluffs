@@ -19,6 +19,8 @@ public interface MatchUpdatePublisher {
 
     enum UpdateType {
         PLAYER_JOINED,
+        PLAYER_LEFT,
+        ROOM_CANCELLED,
         FORMATION_SUBMITTED,
         FORMATION_LOCKED,
         MATCH_STARTED,

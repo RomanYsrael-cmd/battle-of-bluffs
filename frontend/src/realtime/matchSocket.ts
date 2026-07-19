@@ -65,29 +65,20 @@ export function connectMatchUpdates(
   let connectedBefore = false
   let stopped = false
   client.onConnect = () => {
-    const receiptId = `match-subscription-${crypto.randomUUID()}`
-    client.watchForReceipt(receiptId, () => {
-      if (stopped) return
-      callbacks.onState(connectedBefore ? 'RECOVERING' : 'SYNCHRONIZED')
-      connectedBefore = true
-      callbacks.onConnected()
-    })
     client.subscribe(`/user/queue/matches/${matchId}`, (message: IMessage) => {
       try {
         callbacks.onUpdate(JSON.parse(message.body) as MatchUpdateEnvelope)
       } catch {
         callbacks.onInvalidMessage()
       }
-    }, { receipt: receiptId })
-    const chatReceiptId = `chat-subscription-${crypto.randomUUID()}`
-    client.watchForReceipt(chatReceiptId, () => callbacks.onChatConnected?.())
+    })
     client.subscribe(`/user/queue/matches/${matchId}/chat`, (message: IMessage) => {
       try {
         callbacks.onChatMessage?.(JSON.parse(message.body) as ChatMessage)
       } catch {
         callbacks.onInvalidMessage()
       }
-    }, { receipt: chatReceiptId })
+    })
     client.subscribe(`/user/queue/matches/${matchId}/chat/errors`, (message: IMessage) => {
       try {
         callbacks.onChatError?.(JSON.parse(message.body) as ChatError)
@@ -95,6 +86,11 @@ export function connectMatchUpdates(
         callbacks.onInvalidMessage()
       }
     })
+    if (stopped) return
+    callbacks.onState(connectedBefore ? 'RECOVERING' : 'SYNCHRONIZED')
+    connectedBefore = true
+    callbacks.onConnected()
+    callbacks.onChatConnected?.()
   }
   const reconnecting = () => {
     if (!stopped) callbacks.onState('RECONNECTING')

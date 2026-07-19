@@ -4,6 +4,38 @@ import type { Rank } from '../game/ranks'
 export type PlayerSide = 'PLAYER_ONE' | 'PLAYER_TWO'
 export type MatchPhase = 'FORMATION' | 'ACTIVE' | 'TERMINAL'
 
+export interface CurrentMatchSummary {
+  matchId: string
+  mode: 'CASUAL' | 'RANKED'
+  phase: MatchPhase
+  version: number
+  roomCode: string | null
+  side: PlayerSide
+  opponentPresent: boolean
+  ownFormationSubmitted: boolean
+  ownLocked: boolean
+  opponentLocked: boolean
+  currentPlayer: PlayerSide | null
+  createdAt: string | null
+  updatedAt: string | null
+  canResume: boolean
+  canCancel: boolean
+  canLeave: boolean
+  resumeRoute: string
+}
+
+export interface CurrentMatchesResponse {
+  activities: CurrentMatchSummary[]
+  multipleOpenMatches: boolean
+}
+
+export interface LifecycleResponse {
+  commandId: string
+  version: number
+  matchId: string
+  action: 'ROOM_CANCELLED' | 'LOBBY_LEFT'
+}
+
 export interface TerminalResult {
   winner: PlayerSide | null
   reason: string
@@ -39,6 +71,8 @@ export type PublicEventType =
   | 'FLAG_CHALLENGE_STARTED'
   | 'MATCH_ENDED'
   | 'PLAYER_RESIGNED'
+  | 'PLAYER_LEFT'
+  | 'ROOM_CANCELLED'
 
 export interface EventView {
   sequence: number
@@ -123,6 +157,7 @@ export interface ApiErrorBody {
   code: string
   message: string
   timestamp: string
+  context?: unknown
 }
 
 export interface ChatMessage {

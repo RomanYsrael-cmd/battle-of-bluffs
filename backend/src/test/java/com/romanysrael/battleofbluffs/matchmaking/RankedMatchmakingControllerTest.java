@@ -80,9 +80,21 @@ class RankedMatchmakingControllerTest {
 
         org.mockito.Mockito.reset(matchmaking);
         when(matchmaking.enqueue(PLAYER.userId())).thenThrow(new MatchmakingException(
-                "ACTIVE_MATCH", "Finish the current match."));
+                "OPEN_MATCH_EXISTS",
+                "You already have a game in progress.",
+                java.util.Map.of("blockingMatches", java.util.List.of(java.util.Map.of(
+                        "matchId", "40000000-0000-4000-8000-000000000004",
+                        "mode", "CASUAL",
+                        "phase", "FORMATION",
+                        "canResume", true,
+                        "canCancel", true,
+                        "resumeRoute", "/matches/40000000-0000-4000-8000-000000000004")))));
         mvc.perform(post("/api/matchmaking/ranked").with(user(PLAYER)).with(csrf()))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("ACTIVE_MATCH"));
+                .andExpect(jsonPath("$.code").value("OPEN_MATCH_EXISTS"))
+                .andExpect(jsonPath("$.message").value("You already have a game in progress."))
+                .andExpect(jsonPath("$.context.blockingMatches[0].canResume").value(true))
+                .andExpect(jsonPath("$.context.blockingMatches[0].canCancel").value(true))
+                .andExpect(jsonPath("$.context.blockingMatches[0].opponentPieces").doesNotExist());
     }
 }

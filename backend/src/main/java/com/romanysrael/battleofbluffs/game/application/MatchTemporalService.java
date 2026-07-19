@@ -191,6 +191,7 @@ final class MatchTemporalService {
                     return;
                 }
                 match.liveSequence++;
+                match.updatedAt = now;
                 repository.save(match);
                 publishUpdate(match, MatchUpdatePublisher.UpdateType.TIMER_SYNC);
             }
@@ -215,6 +216,7 @@ final class MatchTemporalService {
                 if (changed) {
                     match.version++;
                     match.liveSequence++;
+                    match.updatedAt = now;
                     repository.save(match);
                 }
                 evaluateDeadlines(match, now);
@@ -349,6 +351,7 @@ final class MatchTemporalService {
             PrivateMatch match, MatchUpdatePublisher.UpdateType updateType) {
         match.version++;
         match.liveSequence++;
+        match.updatedAt = clock.instant();
         repository.save(match);
         publishUpdate(match, updateType);
     }
