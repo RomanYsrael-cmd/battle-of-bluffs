@@ -31,7 +31,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Remediation: added a fail-closed `prod` profile with required external variables, HTTPS URL validation, mandatory Secure/Strict cookie, required SMTP STARTTLS, bounded pool, safe error settings, Flyway validation and incompatible-profile rejection.
 - Regression tests: `ProductionConfigurationValidatorTest`; missing-variable startup check.
 - Status: **FIXED**
-- Correction commit: `security: harden production boundaries` (local checkpoint)
+- Correction commit: `34f6311` (`security: harden production boundaries`)
 
 ### SEC-002 — Debug request/response logging disclosed credentials and private game data
 
@@ -43,7 +43,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Remediation: sensitive DTO string representations now expose only safe metadata and `REDACTED`; production web/SQL logging remains restricted.
 - Regression tests: `AccountApiControllerTest.credentialAndTokenDtosNeverRenderSecretsIntoLogs`, `MatchUpdateEnvelopeSerializationTest`.
 - Status: **FIXED**
-- Correction commit: `security: harden production boundaries` (local checkpoint)
+- Correction commit: `34f6311` (`security: harden production boundaries`)
 
 ### SEC-003 — Browser origin and response-header policy was incomplete
 
@@ -55,7 +55,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Remediation: exact configured origin, credentialed CORS without wildcard, CSP with no `unsafe-eval`, frame denial, no-referrer, feature restrictions and existing nosniff/HSTS behavior. Forwarded headers remain disabled unless deployment is deliberately changed.
 - Regression tests: `AccountApiControllerTest.corsAllowsOnlyTheConfiguredFrontendOriginWithCredentials` and header assertions.
 - Status: **FIXED**
-- Correction commit: `security: harden production boundaries` (local checkpoint)
+- Correction commit: `34f6311` (`security: harden production boundaries`)
 
 ### SEC-004 — Abuse-key maps could grow past their intended bound
 
@@ -67,7 +67,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Remediation: hard 10,000-key caps with expired-key cleanup and fail-closed behavior; login is limited by socket peer and normalized account identity; peer identity ignores forwarded headers.
 - Regression tests: `AccountRateLimiterTest.attackerControlledKeysCannotGrowTheLimiterPastItsHardBound`, forwarded-header test.
 - Status: **FIXED**
-- Correction commit: `security: harden production boundaries` (local checkpoint)
+- Correction commit: `34f6311` (`security: harden production boundaries`)
 
 ### SEC-005 — Production session policy lacked an absolute lifetime
 
@@ -79,7 +79,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Remediation: 30-minute production idle timeout, 12-hour absolute lifetime, five-session maximum, rotation at login, reset/logout invalidation, and `__Host-GOTGSESSION` Secure/HttpOnly/SameSite=Strict cookie.
 - Regression tests: `AbsoluteSessionLifetimeFilterTest`, security MVC/session tests and production validator tests.
 - Status: **FIXED**
-- Correction commit: `security: harden production boundaries` (local checkpoint)
+- Correction commit: `34f6311` (`security: harden production boundaries`)
 
 ### SEC-006 — Reset/verification secrets remained in the address bar and expired sessions retained caches
 
@@ -91,7 +91,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Remediation: capture tokens in component memory and immediately replace the URL; clear CSRF, navigation state and React Query caches on session expiration, then route to login.
 - Regression tests: `AuthScreens.security.test.tsx` and existing logout/cache tests.
 - Status: **FIXED**
-- Correction commit: `security: harden production boundaries` (local checkpoint)
+- Correction commit: `34f6311` (`security: harden production boundaries`)
 
 ### SEC-007 — WebSocket transport had no explicit resource ceilings
 
@@ -103,7 +103,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Remediation: 16 KiB messages, 64 KiB send buffers, 10-second send limit and 15-second first-message deadline. Existing interceptor restricts every SUBSCRIBE/SEND and revalidates account status/membership.
 - Regression tests: existing `MatchSubscriptionInterceptorTest`; configuration compiles in the full context.
 - Status: **FIXED**
-- Correction commit: `security: harden production boundaries` (local checkpoint)
+- Correction commit: `34f6311` (`security: harden production boundaries`)
 
 ### SEC-008 — Extreme valid page numbers could overflow multiplication
 
@@ -115,7 +115,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Remediation: perform offset multiplication as `long` before clamping.
 - Regression tests: service suites and full backend suite.
 - Status: **FIXED**
-- Correction commit: `security: harden production boundaries` (local checkpoint)
+- Correction commit: `34f6311` (`security: harden production boundaries`)
 
 ### SEC-009 — Supply-chain workflow references were mutable
 
@@ -127,7 +127,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Remediation: action SHAs resolved from upstream repositories and pinned, least-privilege permissions, CodeQL, weekly ecosystem updates, production npm audit, Maven dependency analysis, and seven-day failure-artifact retention.
 - Regression tests: YAML review; local npm audit and Maven dependency analysis.
 - Status: **FIXED**
-- Correction commit: `security: harden production boundaries` (local checkpoint)
+- Correction commit: `34f6311` (`security: harden production boundaries`)
 
 ### SEC-010 — Development infrastructure listened on every interface
 
@@ -139,7 +139,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Remediation: bind development services to `127.0.0.1`, identify the stack as development-only, and pin PostgreSQL to 18.4.
 - Regression tests: Compose configuration validation when Docker access is available.
 - Status: **FIXED**
-- Correction commit: `security: harden production boundaries` (local checkpoint)
+- Correction commit: `34f6311` (`security: harden production boundaries`)
 
 ### SEC-011 — Single-instance and endpoint-specific abuse controls remain limited
 
@@ -167,7 +167,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Evidence: `gitleaks`/`osv-scanner` were unavailable; Git/history pattern searches found only obvious development/test values.
 - Remediation: pinned Gitleaks now scans full history in CI; rotate immediately if a real secret is ever identified. Do not rewrite history without explicit approval.
 - Status: **FIXED** — local execution remains unavailable, with CI coverage added
-- Correction commit: `security: harden production boundaries` (local checkpoint)
+- Correction commit: `34f6311` (`security: harden production boundaries`)
 
 ### SEC-014 — Outsiders could retrieve summaries for active match-history identifiers
 
@@ -179,7 +179,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Remediation: nonparticipants now receive the same not-found response for every nonterminal match; terminal public summaries remain available without private piece projections.
 - Regression tests: `ProfileHistoryAuthorizationTest.activeMatchHistoryGivesParticipantSafeViewAndHidesExistenceFromOutsider`.
 - Status: **FIXED**
-- Correction commit: `security: harden production boundaries` (local checkpoint)
+- Correction commit: `34f6311` (`security: harden production boundaries`)
 
 ### SEC-015 — Requests lacked a safe end-to-end correlation identifier
 
@@ -191,7 +191,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Remediation: accept only a 1–64 character conservative identifier alphabet, generate a UUID otherwise, return it in `X-Request-ID`, scope it in MDC with guaranteed cleanup, and include it in the production log-level pattern.
 - Regression tests: `RequestCorrelationFilterTest` covers safe propagation, unsafe replacement and MDC cleanup.
 - Status: **FIXED**
-- Correction commit: `security: harden production boundaries` (local checkpoint)
+- Correction commit: `34f6311` (`security: harden production boundaries`)
 
 ### SEC-016 — JSON transport size depends on the production edge
 
@@ -201,6 +201,27 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Evidence: Tomcat form/swallow limits do not provide a universal pre-parser ceiling for every JSON transfer mode; application DTOs and WebSocket transport do have explicit field/message bounds.
 - Remediation: the deployment runbook requires a 1 MiB proxy body limit plus connection/rate ceilings; backend DTO validation remains defense in depth.
 - Status: **ACCEPTED RISK** — a universal servlet wrapper would add buffering/streaming complexity and the trusted production reverse proxy is the correct early-rejection boundary.
+
+### SEC-017 — Development and CI container images use version tags rather than digests
+
+- Affected component: Compose and GitHub Actions service containers
+- Severity / likelihood / impact: **LOW** / uncommon / upstream tag replacement could change executed container content
+- Attack scenario: a registry tag is maliciously or accidentally republished after review and a later development or CI pull executes different bytes.
+- Evidence: PostgreSQL is pinned to `18.4` and Mailpit to `v1.30.4`, but neither reference includes a platform-specific digest; this host cannot query the Docker socket to verify the locally selected architecture manifest.
+- Remediation: explicit versions replace broad floating tags and Dependabot monitors Docker references. Resolve and review the correct multi-architecture digest in the deployment/CI environment during the next image update.
+- Status: **ACCEPTED RISK** — inserting an unverified architecture digest here could break CI and would provide false assurance.
+
+### SEC-018 — Managed runtime dependencies contained published 2026 vulnerabilities
+
+- Affected component: embedded Tomcat, PostgreSQL JDBC and Log4j API runtime dependencies
+- Severity / likelihood / impact: **HIGH** / configuration-dependent / database channel-binding downgrade or container security-control defects
+- Attack scenario: a network-positioned attacker downgrades a PostgreSQL connection configured with `channelBinding=require`, or a deployment later enables an affected Tomcat connector/rewrite feature. Log4j JSON `MapMessage` output could also be malformed by a non-finite attacker-controlled value, although this application does not configure that layout.
+- Evidence: OWASP Dependency-Check 12.2.2 identified PostgreSQL JDBC 42.7.11 (CVE-2026-54291), Tomcat Embed 11.0.22 (multiple CVE-2026 advisories), and Log4j API 2.25.4 (CVE-2026-49844). The pgJDBC vendor rates its issue High; Apache rates the applicable Tomcat 11.0.22/11.0.23 issues Low, while NVD scores several more aggressively.
+- Affected files: `backend/pom.xml`
+- Remediation: override Spring Boot's managed versions to pgJDBC 42.7.12, Tomcat 11.0.24 and Log4j 2.25.5, the upstream fixed releases, without changing framework APIs.
+- Regression tests: full backend suite and a repeated OWASP Dependency-Check scan with a CVSS 7 failure gate.
+- Status: **FIXED**
+- Correction commit: pending final dependency verification checkpoint
 
 ## Verified existing controls
 
@@ -214,7 +235,7 @@ Use HTTPS, an explicit trusted reverse proxy, database TLS/least privilege/timeo
 
 - Backend after hardening: 421 tests discovered; 420 passed and the Docker-socket-dependent Testcontainers migration test was skipped.
 - Frontend after hardening: 16 files / 94 tests passed; the production build passed; full and production-only npm audits reported zero vulnerabilities.
-- Browser: all five isolated Playwright journeys passed in 1.0 minute against PostgreSQL 18.4, native Mailpit, the hardened backend and a dedicated Vite port. This covers independent accounts, lobby lifecycle, formation/chat/move/terminal history, ranked exactly-once rating, outsider REST/STOMP denial, rank secrecy and inert hostile chat.
+- Browser: all five final isolated Playwright journeys passed in 1.4 minutes against PostgreSQL 18.4, native Mailpit, the hardened backend and a dedicated Vite port. This covers independent accounts, lobby lifecycle, formation/chat/move/terminal history, ranked exactly-once rating, outsider REST/STOMP denial, rank secrecy and inert hostile chat.
 - Production profile: failed closed with missing environment; started with isolated safe test values; Flyway validated schema version 1. `Set-Cookie` used `__Host-GOTGSESSION; Path=/; Secure; HttpOnly; SameSite=Strict`; CSP/nosniff/no-referrer/Permissions-Policy were present; hostile Host returned 400; hostile Origin and missing CSRF returned 403; `/api/dev/**` and `/actuator/info` returned 404. HSTS was correctly absent from the plain-HTTP local smoke test and is emitted only for secure requests. HTTP correlation IDs are validated/generated and included in production logging context.
-- Supply chain: Maven dependency analysis succeeded with known Spring Boot starter-aggregation warnings; npm audit was clean. CI now pins actions, runs Gitleaks and CodeQL, audits production npm dependencies, and generates Maven/npm CycloneDX SBOM artifacts.
+- Supply chain: Maven dependency analysis succeeded with known Spring Boot starter-aggregation warnings; npm audit was clean. OWASP Dependency-Check initially blocked on the published pgJDBC/Tomcat/Log4j issues in SEC-018, then reported zero vulnerable dependencies after the fixed-version overrides. CI now pins actions, runs Gitleaks, CodeQL and a CVSS 7 backend dependency gate, audits production npm dependencies, and generates Maven/npm CycloneDX SBOM artifacts.
 - All temporary backend/frontend/Mailpit processes started by this audit were stopped. Pre-existing workspace services on ports 8080/5173 were not altered.

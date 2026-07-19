@@ -4,6 +4,8 @@
 
 Internet traffic terminates TLS at a maintained reverse proxy. The proxy serves the built frontend and forwards only `/api` and `/ws` to one private backend instance. The backend alone reaches PostgreSQL and the authenticated STARTTLS SMTP relay. PostgreSQL, SMTP administration and Actuator are never internet-bound. `infra/compose.yaml` is development-only.
 
+Compose and CI use explicit PostgreSQL/Mailpit versions. During image maintenance, review release notes, resolve the registry's correct multi-architecture digest in CI, update tag and digest together, then run the full backend and browser suites; do not copy a single-architecture digest from an unrelated host.
+
 Forwarded headers are disabled by default (`server.forward-headers-strategy=none`), so the application uses the socket peer for IP throttles. If a deployment later enables forwarded headers, restrict direct backend access to the proxy and configure an exact trusted-proxy boundary first. Verification/reset links always derive from `FRONTEND_URL`, never Host or forwarded-host headers.
 
 ## Required configuration

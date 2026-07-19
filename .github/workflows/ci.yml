@@ -33,6 +33,9 @@ jobs:
       - name: Analyze dependency declarations
         working-directory: backend
         run: ./mvnw dependency:analyze
+      - name: Scan backend dependencies
+        working-directory: backend
+        run: ./mvnw org.owasp:dependency-check-maven:12.2.2:check -DskipTestScope=true -DfailBuildOnCVSS=7
       - name: Generate backend SBOM
         working-directory: backend
         run: ./mvnw -DskipTests org.cyclonedx:cyclonedx-maven-plugin:2.9.2:makeAggregateBom
