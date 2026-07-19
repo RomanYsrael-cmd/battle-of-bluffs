@@ -221,7 +221,7 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Remediation: override Spring Boot's managed versions to pgJDBC 42.7.12, Tomcat 11.0.24 and Log4j 2.25.5, the upstream fixed releases, without changing framework APIs.
 - Regression tests: full backend suite and a repeated OWASP Dependency-Check scan with a CVSS 7 failure gate.
 - Status: **FIXED**
-- Correction commit: pending final dependency verification checkpoint
+- Correction commit: `7912a30` (`security: remediate vulnerable runtime dependencies`)
 
 ## Verified existing controls
 
