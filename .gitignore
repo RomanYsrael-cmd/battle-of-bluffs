@@ -1,0 +1,20 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Java / Maven
+backend/target/
+backend/.mvn/timing.properties
+
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/*.tsbuildinfo
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.iml
+.DS_Store

@@ -1,0 +1,16 @@
+package com.romanysrael.battleofbluffs.game.domain;
+
+public enum TerminalReason {
+    FLAG_CAPTURE,
+    FLAG_BACK_ROW,
+    IMMOBILIZATION,
+    THREEFOLD_REPETITION,
+    MOVE_LIMIT,
+    MUTUAL_DRAW,
+    RESIGNATION,
+    TIMEOUT,
+    SETUP_TIMEOUT,
+    DISCONNECT_FORFEIT,
+    CUMULATIVE_DISCONNECT_FORFEIT,
+    NO_CONTEST
+}
