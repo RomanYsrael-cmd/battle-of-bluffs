@@ -28,6 +28,7 @@ import type {
   ChatError,
   ChatMessage,
   CommandResponse,
+  CurrentMatchesResponse,
   CurrentMatchSummary,
 } from './api/types'
 import { ApiErrorNotice } from './components/ApiErrorNotice'
@@ -247,8 +248,44 @@ function MatchApplication() {
     }
     saveSession(nextSession)
     queryClient.setQueryData(matchQueryKey(nextSession), response.view)
-    void queryClient.invalidateQueries({ queryKey: currentMatchesQueryKey })
+    queryClient.setQueryData<CurrentMatchesResponse>(currentMatchesQueryKey, (current) => {
+      const existing = current?.activities.find((activity) => activity.matchId === response.matchId)
+      const enteredMatch: CurrentMatchSummary = {
+        matchId: response.matchId,
+        mode: response.view.mode,
+        phase: response.view.phase,
+        version: response.version,
+        roomCode: response.roomCode,
+        side: response.view.requestingSide,
+        opponentPresent: response.view.requestingSide === 'PLAYER_ONE'
+          ? response.view.playerTwoOccupied
+          : response.view.playerOneOccupied,
+        ownFormationSubmitted: response.view.ownPieces.length > 0,
+        ownLocked: response.view.requestingSide === 'PLAYER_ONE'
+          ? response.view.playerOneLocked
+          : response.view.playerTwoLocked,
+        opponentLocked: response.view.requestingSide === 'PLAYER_ONE'
+          ? response.view.playerTwoLocked
+          : response.view.playerOneLocked,
+        currentPlayer: response.view.currentPlayer,
+        createdAt: existing?.createdAt ?? null,
+        updatedAt: existing?.updatedAt ?? null,
+        canResume: true,
+        canCancel: existing?.canCancel ?? false,
+        canLeave: existing?.canLeave ?? false,
+        resumeRoute: `/matches/${response.matchId}`,
+      }
+      const otherActivities = current?.activities.filter(
+        (activity) => activity.matchId !== response.matchId,
+      ) ?? []
+      const activities = [enteredMatch, ...otherActivities]
+      return {
+        activities,
+        multipleOpenMatches: activities.length > 1,
+      }
+    })
     navigate(`/matches/${response.matchId}`)
+    void queryClient.invalidateQueries({ queryKey: currentMatchesQueryKey })
   }
 
   const continueMatch = (activity: CurrentMatchSummary) => {

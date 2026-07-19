@@ -27,7 +27,10 @@ export function ActiveMatchScreen({
 }: ActiveMatchScreenProps) {
   const [selectedPieceId, setSelectedPieceId] = useState<string | null>(null)
   const handleError = (error: unknown) => {
-    if (error instanceof MatchApiError && error.code === 'STALE_VERSION') onStale()
+    if (error instanceof MatchApiError && error.code === 'STALE_VERSION') {
+      setSelectedPieceId(null)
+      onStale()
+    }
   }
   const moveMutation = useMutation({
     mutationFn: ({ source, destination }: { source: Position; destination: Position }) =>

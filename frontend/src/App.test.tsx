@@ -40,14 +40,17 @@ function installApi({
   view = matchView(),
   joinError,
   lifecycleStaleOnce = false,
+  currentRequestGates = [],
 }: {
   activities?: CurrentMatchSummary[]
   view?: PlayerMatchView
   joinError?: { code: string; message: string; status: number }
   lifecycleStaleOnce?: boolean
+  currentRequestGates?: Promise<void>[]
 } = {}) {
   let authoritative = activities
   let rejectLifecycleAsStale = lifecycleStaleOnce
+  let currentRequestIndex = 0
   const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input)
     const method = init?.method ?? 'GET'
@@ -85,9 +88,13 @@ function installApi({
       })
     }
     if (url === '/api/matches/current') {
+      const snapshot = authoritative
+      const gate = currentRequestGates[currentRequestIndex]
+      currentRequestIndex += 1
+      if (gate) await gate
       return jsonResponse({
-        activities: authoritative,
-        multipleOpenMatches: authoritative.length > 1,
+        activities: snapshot,
+        multipleOpenMatches: snapshot.length > 1,
       })
     }
     if (url === '/api/matches' && method === 'POST') {
@@ -152,6 +159,14 @@ function installApi({
   return fetchMock
 }
 
+function deferred() {
+  let resolve!: () => void
+  const promise = new Promise<void>((complete) => {
+    resolve = complete
+  })
+  return { promise, resolve }
+}
+
 describe('authoritative open-match recovery', () => {
   beforeEach(() => {
     sessionStorage.clear()
@@ -161,18 +176,45 @@ describe('authoritative open-match recovery', () => {
 
   afterEach(() => vi.unstubAllGlobals())
 
-  it('creates a private match and routes to its durable match URL', async () => {
+  it('routes a created match after fast discovery and discovers it again on return home', async () => {
     const view = matchView({ requestingPlayerId: 'generated-host' })
-    installApi({ view })
+    const fetchMock = installApi({ view })
+    render(<App />)
+
+    const createButton = await screen.findByRole('button', { name: 'Create private match' })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      '/api/matches/current',
+      expect.any(Object),
+    ))
+    fireEvent.click(createButton)
+
+    await waitFor(() => expect(window.location.pathname).toBe(`/matches/${view.matchId}`))
+    expect(await screen.findByDisplayValue('ABC234')).toBeInTheDocument()
+    expect(screen.getByText(/waiting for a second player/i)).toBeInTheDocument()
+    expect(loadSession()).toEqual({ matchId: view.matchId, roomCode: 'ABC234' })
+    expect(localStorage.length).toBe(0)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to dashboard' }))
+    expect(await screen.findByRole('heading', { name: 'Current game' })).toBeInTheDocument()
+    expect(screen.getByText('ABC234')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel room' })).toBeEnabled()
+  })
+
+  it('routes a created match before a delayed stale discovery request can finish', async () => {
+    const view = matchView({ requestingPlayerId: 'generated-host' })
+    const initialDiscovery = deferred()
+    installApi({ view, currentRequestGates: [initialDiscovery.promise] })
     render(<App />)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Create private match' }))
 
+    await waitFor(() => expect(window.location.pathname).toBe(`/matches/${view.matchId}`))
     expect(await screen.findByDisplayValue('ABC234')).toBeInTheDocument()
-    expect(screen.getByText(/waiting for a second player/i)).toBeInTheDocument()
-    expect(window.location.pathname).toBe(`/matches/${view.matchId}`)
-    expect(loadSession()).toEqual({ matchId: view.matchId, roomCode: 'ABC234' })
-    expect(localStorage.length).toBe(0)
+    initialDiscovery.resolve()
+    fireEvent.click(screen.getByRole('button', { name: 'Back to dashboard' }))
+    expect(await screen.findByRole('heading', { name: 'Current game' })).toBeInTheDocument()
+    expect(screen.getByText('ABC234')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel room' })).toBeEnabled()
   })
 
   it('joins a room by code and enters as Player 2', async () => {
@@ -187,6 +229,7 @@ describe('authoritative open-match recovery', () => {
     fireEvent.change(await screen.findByLabelText('Room code'), { target: { value: 'abc234' } })
     fireEvent.click(screen.getByRole('button', { name: 'Join match' }))
 
+    await waitFor(() => expect(window.location.pathname).toBe(`/matches/${view.matchId}`))
     expect(await screen.findByText('Side 2')).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledWith('/api/matches/join', expect.objectContaining({ method: 'POST' }))
     expect(loadSession()?.matchId).toBe(view.matchId)

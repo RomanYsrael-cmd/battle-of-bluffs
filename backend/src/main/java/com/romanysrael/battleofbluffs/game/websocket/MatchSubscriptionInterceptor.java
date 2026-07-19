@@ -84,10 +84,37 @@ public final class MatchSubscriptionInterceptor implements ChannelInterceptor {
         if (sessionId == null || sessionId.isBlank()) {
             throw new AccessDeniedException("WebSocket session is required");
         }
-        if (destination.equals("/user/queue/matches/" + matchId)) {
-            presence.subscribed(matchId, principal.userId().toString(), sessionId);
-        }
         return message;
+    }
+
+    @Override
+    public void postSend(Message<?> message, MessageChannel channel, boolean sent) {
+        if (!sent) {
+            return;
+        }
+        StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
+        if (accessor.getCommand() != StompCommand.SUBSCRIBE) {
+            return;
+        }
+        String destination = accessor.getDestination();
+        Matcher destinationMatch = MATCH_SUBSCRIPTION.matcher(
+                destination == null ? "" : destination);
+        if (!destinationMatch.matches()
+                || !destination.equals("/user/queue/matches/" + destinationMatch.group(1))) {
+            return;
+        }
+        if (!(accessor.getUser() instanceof Authentication authentication)
+                || !(authentication.getPrincipal() instanceof AccountPrincipal principal)) {
+            return;
+        }
+        String sessionId = accessor.getSessionId();
+        if (sessionId == null || sessionId.isBlank()) {
+            return;
+        }
+        presence.subscribed(
+                UUID.fromString(destinationMatch.group(1)),
+                principal.userId().toString(),
+                sessionId);
     }
 
     private Authentication authentication(StompHeaderAccessor accessor) {

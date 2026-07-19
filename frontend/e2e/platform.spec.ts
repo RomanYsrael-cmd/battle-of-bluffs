@@ -324,22 +324,85 @@ async function exchangeChat(sender: Page, recipient: Page, text: string) {
 }
 
 async function makeOneLegalMove(firstPage: Page, secondPage: Page) {
+  await Promise.all([
+    expect(firstPage.locator('.status-pill')).toContainText('ACTIVE'),
+    expect(secondPage.locator('.status-pill')).toContainText('ACTIVE'),
+  ])
+  await expect.poll(async () => {
+    const [firstMoves, secondMoves, firstVersion, secondVersion] = await Promise.all([
+      firstPage.getByRole('heading', { name: 'Your turn' }).isVisible(),
+      secondPage.getByRole('heading', { name: 'Your turn' }).isVisible(),
+      displayedMatchVersion(firstPage),
+      displayedMatchVersion(secondPage),
+    ])
+    return {
+      visibleTurnHeadings: Number(firstMoves) + Number(secondMoves),
+      versionsConverged: firstVersion === secondVersion,
+    }
+  }, { message: 'both active views must agree on one current player and one version' }).toEqual({
+    visibleTurnHeadings: 1,
+    versionsConverged: true,
+  })
+
   const firstMoves = await firstPage.getByRole('heading', { name: 'Your turn' }).isVisible()
   const mover = firstMoves ? firstPage : secondPage
   const observer = firstMoves ? secondPage : firstPage
-  const sideOneMoves = await mover.getByText('Side 1', { exact: true }).isVisible()
+  const sideLabel = mover.locator('.match-header').getByText(/^Side [12]$/)
+  await expect(sideLabel).toBeVisible()
+  const sideOneMoves = await sideLabel.textContent() === 'Side 1'
   const sourceRow = sideOneMoves ? 2 : 5
   const destinationRow = sideOneMoves ? 3 : 4
   const sourceRank = sideOneMoves ? 'Spy' : 'Five-Star General'
-  await mover.getByRole('gridcell', {
+  const source = mover.getByRole('gridcell', {
     name: new RegExp(`Row ${sourceRow}, column 0, ${sourceRank}`),
-  }).click()
-  await mover.getByRole('gridcell', {
+  })
+  await expect(source).toBeEnabled()
+  const previousVersion = await displayedMatchVersion(mover)
+  await source.click()
+  const destination = mover.getByRole('gridcell', {
     name: `Row ${destinationRow}, column 0, candidate destination`,
     exact: true,
-  }).click()
+  })
+  await expect(destination).toBeEnabled()
+
+  const moveResponsePromise = mover.waitForResponse((response) =>
+    response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/moves'))
+  await destination.click()
+  const moveResponse = await moveResponsePromise
+  const responseBody = await moveResponse.json() as {
+    code?: string
+    message?: string
+    version?: number
+    view?: { events?: { type?: string }[] }
+  }
+  if (!moveResponse.ok()) {
+    const visibleErrors = await mover.getByRole('alert').allTextContents()
+    const currentVersion = await displayedMatchVersion(mover)
+    throw new Error([
+      `Move rejected with HTTP ${moveResponse.status()}`,
+      responseBody.code && `${responseBody.code}: ${responseBody.message ?? 'no message'}`,
+      `submitted version ${previousVersion}; displayed version ${currentVersion}`,
+      visibleErrors.length > 0 && `visible error: ${visibleErrors.join(' | ')}`,
+    ].filter(Boolean).join(' — '))
+  }
+  expect(responseBody.version).toBeGreaterThan(previousVersion)
+  expect(responseBody.view?.events?.some((event) => event.type === 'MOVE_APPLIED')).toBe(true)
+
+  const acceptedVersion = responseBody.version as number
+  await expect.poll(async () => Promise.all([
+    displayedMatchVersion(mover),
+    displayedMatchVersion(observer),
+  ]), { message: `both players must converge on accepted version ${acceptedVersion}` })
+    .toEqual([acceptedVersion, acceptedVersion])
   await expect(mover.getByRole('heading', { name: 'Opponent’s turn' })).toBeVisible()
   await expect(observer.getByRole('heading', { name: 'Your turn' })).toBeVisible()
+}
+
+async function displayedMatchVersion(page: Page): Promise<number> {
+  const status = await page.locator('.status-pill').textContent()
+  const version = status?.match(/version\s+(\d+)/i)?.[1]
+  if (!version) throw new Error(`Could not read match version from status: ${status ?? '<missing>'}`)
+  return Number(version)
 }
 
 async function resignAndExpectDisclosure(resigner: Page, observer: Page) {

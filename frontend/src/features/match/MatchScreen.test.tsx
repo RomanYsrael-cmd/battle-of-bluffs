@@ -103,6 +103,16 @@ describe('active and terminal match screens', () => {
     expect(payload.commandId).toMatch(/^[0-9a-f-]{36}$/)
   })
 
+  it('disables piece selection and candidate destinations when it is not the player turn', () => {
+    renderActive(activeView({ currentPlayer: 'PLAYER_TWO' }))
+
+    const ownPieceCell = screen.getByRole('gridcell', { name: /row 2, column 0, flag/i })
+    expect(ownPieceCell).toBeDisabled()
+    fireEvent.click(ownPieceCell)
+    expect(screen.queryByRole('gridcell', { name: /candidate destination/i })).not.toBeInTheDocument()
+    expect(ownPieceCell).not.toHaveAccessibleName(/selected/i)
+  })
+
   it('refetches after a stale version and does not retry the move', async () => {
     const initial = activeView()
     const synchronized = activeView({ version: 7, currentPlayer: 'PLAYER_TWO' })
@@ -141,6 +151,8 @@ describe('active and terminal match screens', () => {
     await waitFor(() => expect(playerViewRequests).toBe(2))
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
     expect(await screen.findByText('Opponent’s turn')).toBeInTheDocument()
+    expect(screen.queryByRole('gridcell', { name: /candidate destination/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('gridcell', { name: /row 2, column 0, flag/i })).toBeDisabled()
   })
 
   it('requires confirmation before resignation', async () => {
