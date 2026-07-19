@@ -90,6 +90,27 @@ class DevelopmentMatchControllerTest {
                 422, "INVALID_FORMATION");
     }
 
+    @Test
+    void joinByRoomCodeDoesNotRequireTheGuestToKnowTheMatchId() throws Exception {
+        JsonNode created = body(mvc.perform(post("/api/dev/matches")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"playerId\":\"room-code-host\"}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString());
+
+        mvc.perform(post("/api/dev/matches/join")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "commandId", UUID.randomUUID(),
+                                "roomCode", created.get("roomCode").stringValue(),
+                                "playerId", "room-code-guest",
+                                "expectedVersion", 1))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.matchId").value(created.get("matchId").stringValue()))
+                .andExpect(jsonPath("$.playerId").value("room-code-guest"))
+                .andExpect(jsonPath("$.view.requestingSide").value("PLAYER_TWO"));
+    }
+
     private void assertStructuredError(
             org.springframework.test.web.servlet.ResultActions action,
             int expectedStatus,

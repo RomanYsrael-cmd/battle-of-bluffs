@@ -5,7 +5,7 @@ Monorepo foundation for a server-authoritative Game of the Generals–style game
 ## Repository structure
 
 - `backend/` — Java 17 and Spring Boot application plus the pure Java rules domain
-- `frontend/` — React, TypeScript, Vite, and Tailwind local formation interface
+- `frontend/` — React, TypeScript, Vite, Tailwind, and TanStack Query match client
 - `infra/compose.yaml` — local PostgreSQL 18 service
 - `docs/` — game rules and architecture documentation
 - `contracts/` — reserved multiplayer protocol contracts
@@ -60,10 +60,10 @@ curl -sS -X POST http://localhost:8080/api/dev/matches \
   -d '{"playerId":"alice-dev"}'
 ```
 
-Join it using the returned `matchId`, `roomCode`, and current `version`:
+Join it using the room code:
 
 ```bash
-curl -sS -X POST http://localhost:8080/api/dev/matches/MATCH_ID/join \
+curl -sS -X POST http://localhost:8080/api/dev/matches/join \
   -H 'Content-Type: application/json' \
   -d '{"commandId":"NEW_UUID","roomCode":"ROOM_CODE","playerId":"bob-dev","expectedVersion":1}'
 ```
@@ -74,9 +74,13 @@ The `playerId` values in request bodies and query parameters are temporary devel
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
+
+Vite serves the frontend at `http://localhost:5173` and proxies `/api` requests to the backend at `http://localhost:8080`. Set `VITE_API_BASE_URL` to override the backend origin when needed.
+
+Open two browser tabs or windows. Create a private match in the first, then enter its room code in the second. Session identity is stored in `sessionStorage`, so separate tabs can act as separate players. These temporary IDs are development conveniences, not authentication; use **Leave local session** before reusing a tab for another player.
 
 For repeatable validation:
 
@@ -85,7 +89,7 @@ npm test
 npm run build
 ```
 
-The formation screen is local-only. It does not send pieces or ranks to the backend.
+The frontend currently synchronizes through REST polling about every 1.5 seconds while a match is waiting, in formation setup, or active. Terminal matches stop polling. This is temporary synchronization rather than real-time push; WebSocket delivery is deferred to the next milestone.
 
 ## Current scope
 
@@ -97,12 +101,13 @@ Implemented in this foundation:
 - PostgreSQL development Compose service
 - Responsive local 8×9 formation placement, swapping, removal, reset, validation, and lock interaction
 - In-memory, server-authoritative private-match application service and temporary development REST API
+- REST-connected private-room frontend with per-tab identity, formation setup, active play, polling, resignation, event history, and terminal disclosure
 
 Explicitly deferred:
 
 - authentication and secure player identities
 - matchmaking and lobby behavior
-- WebSocket live synchronization and finalized event contracts
+- WebSocket live synchronization and finalized event contracts (next milestone)
 - complete persistence entities and database schema
 - video/voice calling
 - rankings, replay delivery, and production deployment

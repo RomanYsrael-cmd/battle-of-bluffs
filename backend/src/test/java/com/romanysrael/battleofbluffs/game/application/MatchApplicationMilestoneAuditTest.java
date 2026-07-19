@@ -374,10 +374,8 @@ class MatchApplicationMilestoneAuditTest {
                 new Position(bobRow, 8), new Position(bobRow - 1, 8));
         bobRow--;
         version = move(fixture, "alice", version, new Position(3, 0), new Position(4, 0));
-        if (playerTwoStarted) {
-            version = move(fixture, "bob", version,
-                    new Position(bobRow, 8), new Position(bobRow - 1, 8));
-        }
+        version = move(fixture, "bob", version,
+                new Position(bobRow, 8), new Position(bobRow - 1, 8));
         service.makeMove(new MakeMoveCommand(UUID.randomUUID(), fixture.matchId(), "alice",
                 version, new Position(4, 0), new Position(5, 0)));
 

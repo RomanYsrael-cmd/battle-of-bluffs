@@ -1,87 +1,119 @@
-import { Board } from './components/Board/Board'
-import { PieceTray } from './components/PieceTray/PieceTray'
-import { FORMATION_CELL_COUNT, FORMATION_PIECE_COUNT } from './game/formation'
-import { useFormation } from './features/formation/useFormation'
+import { useState } from 'react'
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
+import { getPlayerView } from './api/client'
+import type { CommandResponse } from './api/types'
+import { ApiErrorNotice } from './components/ApiErrorNotice'
+import { FormationScreen } from './features/formation/FormationScreen'
+import { HomeScreen } from './features/home/HomeScreen'
+import { ActiveMatchScreen } from './features/match/ActiveMatchScreen'
+import { MatchHeader } from './features/match/MatchHeader'
+import {
+  clearSession,
+  loadSession,
+  saveSession,
+  type MatchSession,
+} from './session/session'
 
-export default function App() {
-  const formation = useFormation()
-  const emptyCells = FORMATION_CELL_COUNT - formation.placedCount
+const matchQueryKey = (session: MatchSession) => ['match', session.matchId, session.playerId]
+
+function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () => void }) {
+  const queryClient = useQueryClient()
+  const [syncMessage, setSyncMessage] = useState('')
+  const query = useQuery({
+    queryKey: matchQueryKey(session),
+    queryFn: () => getPlayerView(session.matchId, session.playerId),
+    retry: false,
+    refetchInterval: (currentQuery) =>
+      currentQuery.state.data?.phase === 'TERMINAL' ? false : 1_500,
+  })
+
+  const acceptResponse = (response: CommandResponse) => {
+    queryClient.setQueryData(matchQueryKey(session), response.view)
+    setSyncMessage('')
+  }
+  const synchronize = () => {
+    setSyncMessage('The match changed. Synchronizing the latest state…')
+    void query.refetch().finally(() => {
+      window.setTimeout(() => setSyncMessage(''), 1_500)
+    })
+  }
+
+  if (query.isPending) {
+    return <main className="app-shell"><p role="status">Loading private match…</p></main>
+  }
+  if (query.error || !query.data) {
+    return (
+      <main className="app-shell">
+        <ApiErrorNotice error={query.error} />
+        <button type="button" className="button button--ghost" onClick={onLeave}>
+          Leave local session
+        </button>
+      </main>
+    )
+  }
 
   return (
     <main className="app-shell">
-      <header className="hero">
-        <div>
-          <p className="eyebrow">Formation lab · Player 1</p>
-          <h1>Arrange the quiet before the bluff.</h1>
-          <p className="hero__copy">
-            Deploy all 21 pieces across canonical rows 0–2. Your opponent sees occupied cells,
-            never your ranks.
-          </p>
-        </div>
-        <div className="local-notice" role="note">
-          <span className="local-notice__dot" />
-          Local prototype only
-          <small>This formation is not sent to a server.</small>
-        </div>
-      </header>
-
-      <div className="workspace">
-        <section className="board-panel" aria-labelledby="board-title">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Canonical board</p>
-              <h2 id="board-title">Formation</h2>
-            </div>
-            <div className={`status-pill ${formation.valid ? 'status-pill--valid' : ''}`}>
-              {formation.placedCount}/{FORMATION_PIECE_COUNT} placed · {emptyCells} empty
-            </div>
-          </div>
-
-          <Board
-            inventory={formation.inventory}
-            placements={formation.placements}
-            selectedPieceId={formation.selectedPieceId}
-            locked={formation.locked}
-            onCellClick={formation.selectCell}
-            onPieceSelect={formation.selectPiece}
-          />
-
-          <div className="actions">
-            <button
-              type="button"
-              className="button button--secondary"
-              disabled={!formation.selectedPieceId || !formation.placements[formation.selectedPieceId] || formation.locked}
-              onClick={formation.returnSelectedToTray}
-            >
-              Return selected to tray
-            </button>
-            <button type="button" className="button button--ghost" onClick={formation.reset}>
-              Reset formation
-            </button>
-            <button
-              type="button"
-              className="button button--primary"
-              disabled={!formation.valid || formation.locked}
-              onClick={formation.lock}
-            >
-              {formation.locked ? 'Formation locked' : 'Lock formation'}
-            </button>
-          </div>
-          {formation.locked && (
-            <p className="locked-message" role="status">
-              Local formation locked. Reset to edit again.
-            </p>
-          )}
-        </section>
-
-        <PieceTray
-          inventory={formation.inventory}
-          placements={formation.placements}
-          selectedPieceId={formation.selectedPieceId}
-          locked={formation.locked}
-          onSelect={formation.selectPiece}
+      <MatchHeader view={query.data} onLeave={onLeave} />
+      {syncMessage && <p className="sync-message" role="status">{syncMessage}</p>}
+      {query.data.phase === 'FORMATION' ? (
+        <FormationScreen
+          view={query.data}
+          session={session}
+          onView={acceptResponse}
+          onStale={synchronize}
         />
-      </div>
+      ) : (
+        <ActiveMatchScreen
+          view={query.data}
+          session={session}
+          onView={acceptResponse}
+          onStale={synchronize}
+          onLeave={onLeave}
+        />
+      )}
     </main>
+  )
+}
+
+function MatchApplication() {
+  const queryClient = useQueryClient()
+  const [session, setSession] = useState<MatchSession | null>(loadSession)
+
+  const enterMatch = (response: CommandResponse) => {
+    const nextSession = {
+      playerId: response.playerId,
+      matchId: response.matchId,
+      roomCode: response.roomCode,
+    }
+    saveSession(nextSession)
+    queryClient.setQueryData(matchQueryKey(nextSession), response.view)
+    setSession(nextSession)
+  }
+
+  const leave = () => {
+    clearSession()
+    queryClient.clear()
+    setSession(null)
+  }
+
+  return session
+    ? <MatchRoute session={session} onLeave={leave} />
+    : <HomeScreen onEnteredMatch={enterMatch} />
+}
+
+export default function App() {
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  }))
+  return (
+    <QueryClientProvider client={queryClient}>
+      <MatchApplication />
+    </QueryClientProvider>
   )
 }

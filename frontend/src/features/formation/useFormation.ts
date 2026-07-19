@@ -1,24 +1,34 @@
 import { useMemo, useState } from 'react'
-import { isPlayerOneFormationPosition, type Position } from '../../game/coordinates'
+import { isFormationPosition, type BoardSide, type Position } from '../../game/coordinates'
 import { isValidFormation, pieceAt, placeOrSwap, removePlacement, type Placements } from '../../game/formation'
-import { createInventory } from '../../game/ranks'
+import { createInventory, type LocalPiece } from '../../game/ranks'
 
-export function useFormation() {
-  const inventory = useMemo(createInventory, [])
-  const [placements, setPlacements] = useState<Placements>({})
+interface InitialPiece extends LocalPiece {
+  position: Position | null
+}
+
+export function useFormation(side: BoardSide, locked: boolean, initialPieces: InitialPiece[] = []) {
+  const inventory = useMemo(
+    () => initialPieces.length === 21
+      ? initialPieces.map(({ id, rank }) => ({ id, rank }))
+      : createInventory(),
+    [initialPieces],
+  )
+  const [placements, setPlacements] = useState<Placements>(() => Object.fromEntries(
+    initialPieces.flatMap((piece) => piece.position ? [[piece.id, piece.position]] : []),
+  ))
   const [selectedPieceId, setSelectedPieceId] = useState<string | null>(null)
-  const [locked, setLocked] = useState(false)
-  const valid = isValidFormation(inventory, placements)
+  const valid = isValidFormation(inventory, placements, side)
 
   const selectPiece = (pieceId: string) => {
     if (!locked) setSelectedPieceId((selected) => selected === pieceId ? null : pieceId)
   }
 
   const selectCell = (position: Position) => {
-    if (locked || !selectedPieceId || !isPlayerOneFormationPosition(position)) return
+    if (locked || !selectedPieceId || !isFormationPosition(position, side)) return
     const selectedIsPlaced = Boolean(placements[selectedPieceId])
     if (!selectedIsPlaced && pieceAt(placements, position)) return
-    setPlacements((current) => placeOrSwap(current, selectedPieceId, position))
+    setPlacements((current) => placeOrSwap(current, selectedPieceId, position, side))
     setSelectedPieceId(null)
   }
 
@@ -32,7 +42,6 @@ export function useFormation() {
   const reset = () => {
     setPlacements({})
     setSelectedPieceId(null)
-    setLocked(false)
   }
 
   return {
@@ -45,7 +54,6 @@ export function useFormation() {
     selectPiece,
     selectCell,
     returnSelectedToTray,
-    lock: () => valid && setLocked(true),
     reset,
   }
 }

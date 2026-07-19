@@ -38,6 +38,14 @@ public final class DevelopmentMatchController {
         return response(result);
     }
 
+    @PostMapping("/join")
+    public DevCommandResponse joinByRoomCode(@Valid @RequestBody JoinRequest request) {
+        MatchCommandResult result = service.joinMatch(new JoinMatchCommand(
+                request.commandId(), request.roomCode(), request.playerId(),
+                request.expectedVersion()));
+        return response(result);
+    }
+
     @PutMapping("/{matchId}/formation")
     public DevCommandResponse formation(
             @PathVariable UUID matchId, @Valid @RequestBody FormationRequest request) {

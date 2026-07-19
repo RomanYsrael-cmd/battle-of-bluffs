@@ -78,10 +78,9 @@ export interface LocalPiece {
 }
 
 export const createInventory = (): LocalPiece[] => {
-  let sequence = 0
   return RANKS.flatMap((rank) =>
     Array.from({ length: INVENTORY_QUANTITIES[rank] }, () => ({
-      id: `piece-${String(++sequence).padStart(2, '0')}`,
+      id: crypto.randomUUID(),
       rank,
     })),
   )

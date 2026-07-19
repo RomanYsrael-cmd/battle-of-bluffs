@@ -1,5 +1,11 @@
 import { Piece } from '../Piece/Piece'
-import { coordinateKey, isPlayerOneFormationPosition, playerOneVisualPositions, type Position } from '../../game/coordinates'
+import {
+  coordinateKey,
+  isFormationPosition,
+  visualPositionsFor,
+  type BoardSide,
+  type Position,
+} from '../../game/coordinates'
 import { pieceAt, type Placements } from '../../game/formation'
 import type { LocalPiece } from '../../game/ranks'
 
@@ -7,12 +13,13 @@ interface BoardProps {
   inventory: LocalPiece[]
   placements: Placements
   selectedPieceId: string | null
+  side: BoardSide
   locked: boolean
   onCellClick: (position: Position) => void
   onPieceSelect: (pieceId: string) => void
 }
 
-export function Board({ inventory, placements, selectedPieceId, locked, onCellClick, onPieceSelect }: BoardProps) {
+export function Board({ inventory, placements, selectedPieceId, side, locked, onCellClick, onPieceSelect }: BoardProps) {
   const selectedIsPlaced = selectedPieceId ? Boolean(placements[selectedPieceId]) : false
 
   return (
@@ -21,10 +28,10 @@ export function Board({ inventory, placements, selectedPieceId, locked, onCellCl
         {Array.from({ length: 9 }, (_, column) => <span key={column}>{column}</span>)}
       </div>
       <div className="board" role="grid" aria-label="Canonical 8 by 9 formation board">
-        {playerOneVisualPositions().map((position) => {
+        {visualPositionsFor(side).map((position) => {
           const occupantId = pieceAt(placements, position)
           const occupant = inventory.find((piece) => piece.id === occupantId)
-          const deploymentCell = isPlayerOneFormationPosition(position)
+          const deploymentCell = isFormationPosition(position, side)
           const highlighted = !locked && Boolean(selectedPieceId) && deploymentCell
             && (selectedIsPlaced || !occupantId)
 
@@ -65,7 +72,9 @@ export function Board({ inventory, placements, selectedPieceId, locked, onCellCl
           )
         })}
       </div>
-      <p className="board-caption">Your deployment area · canonical rows 0–2</p>
+      <p className="board-caption">
+        Your deployment area · canonical rows {side === 'PLAYER_ONE' ? '0–2' : '5–7'}
+      </p>
     </div>
   )
 }

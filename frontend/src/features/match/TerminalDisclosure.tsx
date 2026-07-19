@@ -1,0 +1,28 @@
+import type { PlayerMatchView } from '../../api/types'
+import { RANK_LABELS } from '../../game/ranks'
+
+export function TerminalDisclosure({ view, onLeave }: { view: PlayerMatchView; onLeave: () => void }) {
+  const result = view.terminalResult
+  const winner = result?.winner
+    ? result.winner === view.requestingSide ? 'You won' : `${result.winner === 'PLAYER_ONE' ? 'Player 1' : 'Player 2'} won`
+    : 'Draw'
+
+  return (
+    <section className="terminal-panel" aria-labelledby="terminal-title">
+      <p className="eyebrow">Terminal result</p>
+      <h2 id="terminal-title">{winner}</h2>
+      <p className="terminal-reason">{result?.reason.replaceAll('_', ' ')}</p>
+      <h3>Complete post-match disclosure</h3>
+      <div className="disclosure-grid">
+        {view.postMatchPieces.map((piece) => (
+          <div key={`${piece.owner}-${piece.id}`} className="disclosed-piece">
+            <strong>{RANK_LABELS[piece.rank]}</strong>
+            <span>{piece.owner === 'PLAYER_ONE' ? 'Player 1' : 'Player 2'}</span>
+            <small>{piece.position ? `${piece.position.row},${piece.position.column}` : 'removed'}</small>
+          </div>
+        ))}
+      </div>
+      <button type="button" className="button button--primary" onClick={onLeave}>Return home</button>
+    </section>
+  )
+}

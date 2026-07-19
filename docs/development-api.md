@@ -10,6 +10,7 @@ Accepted state-changing commands use a UUID `commandId` and the current `expecte
 
 - `POST /api/dev/matches` — create a room. Body may contain `{"playerId":"alice"}`; an opaque development ID is generated when omitted.
 - `POST /api/dev/matches/{matchId}/join` — join the room. Body: `commandId`, `roomCode`, optional `playerId`, and `expectedVersion`.
+- `POST /api/dev/matches/join` — join with the same body when the caller knows only the room code.
 - `PUT /api/dev/matches/{matchId}/formation` — submit or replace the requesting player's unlocked formation.
 - `POST /api/dev/matches/{matchId}/lock` — permanently lock the requesting player's valid formation.
 - `POST /api/dev/matches/{matchId}/moves` — make one canonical-coordinate move.
@@ -43,4 +44,4 @@ A move request contains no rank or claimed outcome:
 
 Errors consistently contain `code`, `message`, and `timestamp`. Active opponent pieces use a separate DTO containing only position and a server-generated public UUID. That public UUID is stable within the match but is distinct from the formation submitter's `pieceId`; the same translation applies to opponent removals and post-match opponent pieces. Ranks are disclosed to both participants only after the match is terminal.
 
-WebSocket delivery, authentication, database match persistence, matchmaking, scheduling, disconnect handling, and frontend integration remain deferred.
+WebSocket delivery, authentication, database match persistence, matchmaking, scheduling, and disconnect handling remain deferred. The development frontend currently consumes this API through short-interval REST polling.
