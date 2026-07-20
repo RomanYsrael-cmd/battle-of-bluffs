@@ -34,7 +34,10 @@ vi.mock('@livekit/components-react', () => ({
   VideoTrack: () => <video />,
   AudioTrack: () => <audio />,
   useRoomContext: () => ({ on: vi.fn(), off: vi.fn() }),
-  useConnectionQualityIndicator: () => ({ quality: 'excellent' }),
+  useConnectionQualityIndicator: ({ participant }: { participant?: unknown }) => {
+    if (!participant) throw new Error('No participant provided')
+    return { quality: 'excellent' }
+  },
   useRemoteParticipants: () => mocks.includeRemoteTracks ? [{ name: mocks.remoteName }] : [],
   useTrackToggle: ({ source }: { source: string }) => ({
     enabled: false,
