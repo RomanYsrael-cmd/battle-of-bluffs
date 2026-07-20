@@ -209,6 +209,80 @@ test.describe.serial('complete local platform', () => {
       await outsider.close()
     }
   })
+
+  test('E2E 6 — optional LiveKit media remains isolated from authoritative gameplay', async ({ browser }) => {
+    test.skip(process.env.MEDIA_E2E !== 'true', 'Requires an operator-provided disposable LiveKit Cloud project')
+    const origin = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:5173'
+    const first = await browser.newContext({
+      storageState: firstState,
+      permissions: ['camera', 'microphone'],
+      baseURL: origin,
+    })
+    const second = await browser.newContext({
+      storageState: secondState,
+      permissions: ['camera', 'microphone'],
+      baseURL: origin,
+    })
+    try {
+      const firstPage = await first.newPage()
+      const secondPage = await second.newPage()
+      await createAndJoinPrivateRoom(firstPage, secondPage)
+
+      for (const page of [firstPage, secondPage]) {
+        await page.getByRole('button', { name: 'Open media' }).click()
+        await expect(page.getByText('Media off')).toBeVisible()
+        await page.getByRole('button', { name: 'Enable audio/video' }).click()
+        await expect(page.getByText('Media connected')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('button', { name: 'Unmute mic' })).toBeVisible()
+        await expect(page.getByRole('button', { name: 'Turn camera on' })).toBeVisible()
+        await page.getByRole('button', { name: 'Unmute mic' }).click()
+        await page.getByRole('button', { name: 'Turn camera on' }).click()
+      }
+
+      await expect(firstPage.locator('.media-video-frame video')).toHaveCount(2, { timeout: 30_000 })
+      await expect(secondPage.locator('.media-video-frame video')).toHaveCount(2, { timeout: 30_000 })
+      await firstPage.getByRole('button', { name: 'Mute opponent' }).click()
+      await firstPage.getByRole('button', { name: 'Hide opponent video' }).click()
+      await expect(firstPage.getByText(/Video hidden locally/)).toBeVisible()
+      await expect(secondPage.getByText('Media connected')).toBeVisible()
+
+      await secondPage.getByRole('button', { name: 'Leave media' }).click()
+      await expect(secondPage.getByText('Media off')).toBeVisible()
+      await expect(firstPage.getByText('Live updates synchronized')).toBeVisible()
+      await firstPage.reload()
+      await expect(firstPage.getByText('Live updates synchronized')).toBeVisible()
+      await expect(firstPage.getByText('Media connected')).toBeVisible({ timeout: 30_000 })
+      await expect(firstPage.getByRole('button', { name: 'Unmute mic' })).toBeVisible()
+      await expect(firstPage.getByRole('button', { name: 'Turn camera on' })).toBeVisible()
+
+      await prepareBothArmies(firstPage, secondPage)
+      await expect(firstPage.getByRole('heading', { name: /Your turn|Opponent’s turn/ })).toBeVisible()
+      await firstPage.getByRole('button', { name: 'Open chat' }).click()
+      await firstPage.getByRole('button', { name: 'Block' }).click()
+      await expect(firstPage.getByText('Media off')).toBeVisible()
+      const matchId = await activeMatchId(firstPage)
+      const denied = await firstPage.evaluate(async (id) => {
+        const csrf = await fetch('/api/auth/csrf', { credentials: 'include' })
+          .then((response) => response.json()) as { headerName: string; token: string }
+        const response = await fetch(`/api/matches/${id}/media-token`, {
+          method: 'POST', credentials: 'include', headers: { [csrf.headerName]: csrf.token },
+        })
+        return { status: response.status, body: await response.json() as { code: string } }
+      }, matchId)
+      expect(denied.status).toBe(403)
+      expect(denied.body.code).toBe('MEDIA_BLOCKED')
+
+      await expect(firstPage.getByText('Live updates synchronized')).toBeVisible()
+      await firstPage.setViewportSize({ width: 390, height: 844 })
+      expect(await firstPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+      firstPage.once('dialog', (dialog) => dialog.accept())
+      await firstPage.getByRole('button', { name: 'Resign match' }).click()
+      await expect(firstPage.getByText('Match complete')).toBeVisible()
+    } finally {
+      await first.close()
+      await second.close()
+    }
+  })
 })
 
 async function enterRankedQueue(page: Page) {

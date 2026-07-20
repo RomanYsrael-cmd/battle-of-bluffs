@@ -68,6 +68,20 @@ export const getPlayerView = (matchId: string): Promise<PlayerMatchView> => requ
 
 export const getCurrentMatches = (): Promise<CurrentMatchesResponse> => request('/current')
 
+export interface MediaTokenResponse {
+  enabled: true
+  url: string
+  token: string
+  expiresAt: string
+  room: {
+    matchId: string
+    participantCountLimit: 2
+  }
+}
+
+export const requestMediaToken = (matchId: string): Promise<MediaTokenResponse> =>
+  request(`/${matchId}/media-token`, { method: 'POST' })
+
 export const cancelMatch = (matchId: string, expectedVersion: number): Promise<LifecycleResponse> =>
   request(`/${matchId}/cancel`, {
     method: 'POST',

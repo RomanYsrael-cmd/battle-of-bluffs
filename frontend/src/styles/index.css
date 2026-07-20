@@ -256,6 +256,19 @@ h2 { font-size: 1.65rem; }
 .pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.2rem; color: #8f8778; }
 .pagination button:disabled { opacity: .35; }
 
+.media-panel { margin-top: 1rem; padding: 1rem; border: 1px solid #40372d; border-radius: .75rem; background: rgba(31, 27, 21, .8); }
+.media-panel__heading, .media-controls, .media-devices, .media-videos { display: flex; gap: .75rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.media-panel__heading h2, .media-videos figure { margin: 0; }
+.media-consent, .media-status { max-width: 70ch; color: #b5aa97; }
+.media-room { display: grid; gap: .8rem; margin-top: 1rem; }
+.media-videos figure { flex: 1 1 16rem; }
+.media-video-frame { display: grid; place-items: center; min-height: 11rem; overflow: hidden; border-radius: .6rem; background: #090806; color: #b8ad99; }
+.media-video-frame video { width: 100%; max-height: 18rem; object-fit: cover; }
+.media-local-preview { transform: scaleX(-1); }
+.media-devices label, .media-volume { display: grid; gap: .3rem; }
+.media-devices select { max-width: 16rem; }
+.media-error { color: #df958b; }
+
 @media (max-width: 980px) {
   .hero { align-items: start; flex-direction: column; }
   .workspace { grid-template-columns: 1fr; }

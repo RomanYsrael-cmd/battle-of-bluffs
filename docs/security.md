@@ -17,6 +17,8 @@
 - Bidirectional chat/join blocking and server-derived report opponent/evidence
 - Exactly-once rating ledger with database uniqueness and transactional pair updates
 - Suspended/deleted accounts excluded from leaderboards
+- CSRF-protected, rate-limited media tokens limited to verified active match participants
+- Five-minute LiveKit grants restricted to one opaque match/participant-cycle room, subscribe, and microphone/camera publication; data, screen share, room administration and recording are denied
 
 Security does not depend on disabled controls or hidden DOM. Clients cannot claim player ID, result, rank reveal, clock, rating or battle outcome.
 
@@ -34,13 +36,13 @@ The Playwright security flow repeats outsider REST/STOMP denial in a real browse
 
 ## Limitations
 
-Rate limits, WebSocket broker and ranked queue are single-instance controls. They are appropriate for this milestone, not a claim of horizontally scaled abuse resistance. There is no administrator console, external identity provider, production secrets manager, WAF, Redis or media channel.
+Rate limits, WebSocket broker and ranked queue are single-instance controls. They are appropriate for this milestone, not a claim of horizontally scaled abuse resistance. There is no administrator console, external identity provider, production secrets manager, WAF, Redis, recording, egress, or media storage. A block immediately leaves media in the blocking browser and prevents either account from minting another token; provider-side termination of an already connected blocked peer is not claimed.
 
 ## Production controls and verification
 
-The `prod` profile is fail-closed: database/SMTP credentials, sender and the exact HTTPS frontend origin are mandatory; Secure `__Host-GOTGSESSION` cookies, SMTP STARTTLS, Flyway validation, safe errors and health-only Actuator exposure cannot inherit development defaults. Forwarded headers are disabled. Deployment, proxy, database, backup and rotation requirements are in [production-deployment-security.md](production-deployment-security.md).
+The `prod` profile is fail-closed: database/SMTP credentials, sender and the exact HTTPS frontend origin are mandatory; Secure `__Host-GOTGSESSION` cookies, SMTP STARTTLS, Flyway validation, safe errors and health-only Actuator exposure cannot inherit development defaults. If `MEDIA_ENABLED=true`, an exact secure LiveKit URL plus server-only key and secret are mandatory. Forwarded headers are disabled. Deployment, proxy, database, backup and rotation requirements are in [production-deployment-security.md](production-deployment-security.md).
 
-Responses set CSP, frame restrictions, nosniff, no-referrer and a restrictive Permissions-Policy. HSTS applies on secure requests, not ordinary HTTP development. CSP permits inline styles for one current dynamic progress indicator, but never inline scripts or `unsafe-eval`.
+Responses set CSP, frame restrictions, nosniff, no-referrer and a restrictive Permissions-Policy. The frontend permits camera/microphone only to itself; deployment must add only the exact configured LiveKit Cloud origin to `connect-src`. HSTS applies on secure requests, not ordinary HTTP development. CSP permits inline styles for one current dynamic progress indicator, but never inline scripts or `unsafe-eval`.
 
 ```bash
 cd backend && ./mvnw test && ./mvnw dependency:analyze

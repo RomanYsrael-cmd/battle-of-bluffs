@@ -9,6 +9,7 @@
 - Backend: Java 17 Spring Boot service `gotg-backend.service` on confirmed-free loopback `127.0.0.1:8090`.
 - Database: dedicated PostgreSQL database `battle_of_bluffs_prod` and non-superuser role `gotg_app` in the existing private PostgreSQL 18 cluster.
 - Mail: SpaceMail submission over authenticated STARTTLS on port 587 using an already provisioned mailbox or approved alias. Credentials stay only in protected server configuration.
+- Optional media: dedicated LiveKit Cloud project; its URL is public, while its API key/secret stay only in protected backend configuration.
 
 ## Server layout
 
@@ -34,10 +35,11 @@ The selected database pool is minimum idle 1 and maximum 8. Exact change-time ba
 5. Build `backend/` from the exact merged commit with `./mvnw clean verify` and the project security gates.
 6. Install the versioned JAR atomically, start only `gotg-backend.service`, and validate internal health and Flyway.
 7. Add only the three `/bluffs` locations to the existing nginx configuration, run `nginx -t`, reload nginx, and immediately recheck RomanLMS and GOTG.
-8. Deploy `frontend/` to its dedicated Vercel project with only public `VITE_*` production configuration.
-9. Attach `bluffs.romanlms.com` using Vercel's reported DNS target and validate DNS, TLS, CSP, CORS, CSRF, cookies, REST, and WebSocket behavior.
-10. Run controlled authentication, casual, ranked, persistence, restart, and coexistence smoke tests.
-11. Merge the deployment PR, deploy only the merged main commit, and create the production tag only after complete validation.
+8. If media is enabled, configure the dedicated LiveKit Cloud project, server-only backend credentials, public `VITE_LIVEKIT_URL`, and the exact project origins in Vercel CSP as specified in [audio-video.md](audio-video.md). Confirm a missing credential fails closed.
+9. Deploy `frontend/` to its dedicated Vercel project with only public `VITE_*` production configuration.
+10. Attach `bluffs.romanlms.com` using Vercel's reported DNS target and validate DNS, TLS, CSP, CORS, CSRF, cookies, REST, gameplay WebSocket, and optional media behavior.
+11. Run controlled authentication, casual, ranked, persistence, restart, coexistence, and—when enabled—two-browser media isolation smoke tests.
+12. Merge the deployment PR, deploy only the merged main commit, and create the production tag only after complete validation.
 
 ## Health checks
 
@@ -54,6 +56,7 @@ The selected database pool is minimum idle 1 and maximum 8. Exact change-time ba
 - Backend: atomically repoint the stable artifact to the prior versioned release, restart only `gotg-backend.service`, then verify internal/public GOTG health and RomanLMS health.
 - nginx: restore the timestamped backup of the exact changed file, run `sudo nginx -t`, reload nginx, and verify RomanLMS immediately.
 - Frontend: promote the prior healthy Vercel production deployment, then recheck the custom domain and deep links.
+- Media: set `MEDIA_ENABLED=false`, restart only `gotg-backend.service`, and promote the prior frontend deployment. Gameplay requires no media fallback and must remain healthy.
 - Database: never run Flyway clean or manually reverse destructive migrations. Preserve forward-compatible migrations and use the existing pgBackRest physical recovery process for disaster recovery. The GOTG database is included in cluster-level backups once created in the protected cluster.
 
 Validated rollback assets:

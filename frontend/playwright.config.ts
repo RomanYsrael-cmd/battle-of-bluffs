@@ -13,6 +13,9 @@ export default defineConfig({
     navigationTimeout: 30_000,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    launchOptions: process.env.MEDIA_E2E === 'true' ? {
+      args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+    } : undefined,
     ...devices['Desktop Chrome'],
   },
   outputDir: 'test-results/artifacts',

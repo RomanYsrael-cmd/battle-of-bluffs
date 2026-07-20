@@ -1,21 +1,21 @@
 # Games of the Generals
 
-Games of the Generals is a local-development-ready, server-authoritative implementation of the Filipino hidden-information strategy game. It supports persistent browser accounts, private casual rooms, ranked pairing, live play, clocks, text chat, safety controls, profiles, history, ratings and leaderboards. The authoritative rules are in [docs/game-rules.md](docs/game-rules.md).
+Games of the Generals is a local-development-ready, server-authoritative implementation of the Filipino hidden-information strategy game. It supports persistent browser accounts, private casual rooms, ranked pairing, live play, clocks, text chat, optional participant audio/video, safety controls, profiles, history, ratings and leaderboards. The authoritative rules are in [docs/game-rules.md](docs/game-rules.md).
 
 Production must use `SPRING_PROFILES_ACTIVE=prod`, external database/SMTP secrets and an exact HTTPS `FRONTEND_URL`; the development Compose stack and sample credentials are not production-safe. Review [production deployment security](docs/production-deployment-security.md), [security controls](docs/security.md), and the [production audit](docs/security-audit-production.md). Report vulnerabilities privately to the repository owner without live secrets or personal data.
 
 The production frontend is built for `https://bluffs.romanlms.com` with public `VITE_API_BASE_URL=https://romanlms.com/bluffs/api` and `VITE_WS_URL=wss://romanlms.com/bluffs/ws`. The dedicated backend binds only to `127.0.0.1:8090`; nginx translates the public `/bluffs` routes. See the [production runbook](docs/production-deployment-runbook.md) and [deployment progress](docs/production-deployment-progress.md). Server secrets are never Vite variables or repository files.
 
-Video and voice are intentionally outside this project.
+Audio and video are optional LiveKit Cloud channels. They never carry game commands, chat, clocks, presence, results, or ratings and are disabled unless a participant explicitly enables them. See [media architecture and operations](docs/audio-video.md) and [privacy](docs/privacy.md).
 
 ## Architecture
 
 - `backend/` — Java 17, Spring Boot 4.1, Spring Security sessions/CSRF, STOMP, JPA, Flyway and PostgreSQL
-- `frontend/` — React 19, TypeScript, Vite, TanStack Query and STOMP
+- `frontend/` — React 19, TypeScript, Vite, TanStack Query, STOMP and a lazily loaded LiveKit client
 - `infra/compose.yaml` — persistent PostgreSQL 18 and Mailpit services
 - `docs/` — protocol, security, persistence and local-development references
 
-The backend is one modular monolith. REST accepts authoritative game commands, PostgreSQL stores accounts and match aggregates, and participant-specific WebSocket messages deliver rank-safe updates. Redis, external OAuth and media infrastructure are not required.
+The backend is one modular monolith. REST accepts authoritative game commands, PostgreSQL stores accounts and match aggregates, and participant-specific WebSocket messages deliver rank-safe updates. Optional media uses a separate LiveKit Cloud connection and is not required to play.
 
 ## Prerequisites
 
@@ -61,7 +61,7 @@ Register an account, open its verification message in Mailpit, and follow the `h
 
 ## Playing
 
-For a casual match, sign in from two separate browser profiles or private contexts. One player creates a room and shares its six-character code; the other joins. Both place exactly 21 pieces, submit, lock, make legal canonical-coordinate moves, and may chat, block, report or resign.
+For a casual match, sign in from two separate browser profiles or private contexts. One player creates a room and shares its six-character code; the other joins. Both place exactly 21 pieces, submit, lock, make legal canonical-coordinate moves, and may chat, opt into audio/video, block, report or resign.
 
 Open matches are recovered from the authenticated account, not from browser storage. The play dashboard shows every current lobby or match and the navigation bar keeps a compact Continue Game indicator on other account screens. Before play begins, a host may cancel its casual room; an unlocked guest may leave and free Player 2 for a replacement. Host departure cancels the room. Once play is active—or for any ranked pairing—the match must be resumed and may end only through the normal resignation, clock, disconnect, or game-result rules. A cancelled room uses `ROOM_CANCELLED` and affects neither ratings nor game statistics.
 
@@ -106,7 +106,7 @@ The client-supplied identity compatibility API under `/api/dev/**` exists only w
 - Ranked queue entries are in memory and intentionally single-instance; created matches are persistent.
 - Private lobbies have explicit owner cancellation but no automatic inactivity expiry yet; stale-lobby cleanup remains a future configurable policy.
 - No administrator moderation UI is included.
-- No production deployment, OAuth, spectators, matchmaking clusters, Redis, video or voice is included.
+- No OAuth, spectators, matchmaking clusters, Redis, recording, screen sharing, streaming, SIP, or media storage is included.
 - Email delivery is SMTP-only; Mailpit is the supported local target.
 
 More detail: [architecture](docs/architecture.md), [local development](docs/local-development.md), [authentication](docs/authentication.md), [WebSocket protocol](docs/websocket-protocol.md), [database schema](docs/database-schema.md), [ratings](docs/rating-and-leaderboard.md) and [security](docs/security.md).

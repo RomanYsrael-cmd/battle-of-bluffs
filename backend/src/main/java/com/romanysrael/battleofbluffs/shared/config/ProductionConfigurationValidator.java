@@ -16,18 +16,30 @@ final class ProductionConfigurationValidator {
     private final boolean secureCookie;
     private final boolean smtpTlsRequired;
     private final Environment environment;
+    private final boolean mediaEnabled;
+    private final String liveKitUrl;
+    private final String liveKitApiKey;
+    private final String liveKitApiSecret;
 
     ProductionConfigurationValidator(
             @Value("${app.frontend-url}") String frontendUrl,
             @Value("${app.mail.from}") String mailFrom,
             @Value("${server.servlet.session.cookie.secure}") boolean secureCookie,
             @Value("${spring.mail.properties.mail.smtp.starttls.required}") boolean smtpTlsRequired,
+            @Value("${app.media.enabled:false}") boolean mediaEnabled,
+            @Value("${app.media.url:}") String liveKitUrl,
+            @Value("${app.media.api-key:}") String liveKitApiKey,
+            @Value("${app.media.api-secret:}") String liveKitApiSecret,
             Environment environment) {
         this.frontendUrl = frontendUrl;
         this.mailFrom = mailFrom;
         this.secureCookie = secureCookie;
         this.smtpTlsRequired = smtpTlsRequired;
         this.environment = environment;
+        this.mediaEnabled = mediaEnabled;
+        this.liveKitUrl = liveKitUrl;
+        this.liveKitApiKey = liveKitApiKey;
+        this.liveKitApiSecret = liveKitApiSecret;
     }
 
     @PostConstruct
@@ -59,6 +71,32 @@ final class ProductionConfigurationValidator {
         }
         if (mailFrom.isBlank() || mailFrom.indexOf('\r') >= 0 || mailFrom.indexOf('\n') >= 0) {
             throw new IllegalStateException("MAIL_FROM must be a safe non-empty address");
+        }
+        if (mediaEnabled) {
+            validateMediaConfiguration();
+        }
+    }
+
+    private void validateMediaConfiguration() {
+        URI mediaUri;
+        try {
+            mediaUri = URI.create(liveKitUrl);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalStateException("LIVEKIT_URL must be an absolute secure WebSocket URL", exception);
+        }
+        if (!"wss".equalsIgnoreCase(mediaUri.getScheme())
+                || mediaUri.getHost() == null
+                || !mediaUri.getHost().toLowerCase(java.util.Locale.ROOT).endsWith(".livekit.cloud")
+                || mediaUri.getPort() != -1
+                || !(mediaUri.getRawPath() == null || mediaUri.getRawPath().isEmpty()
+                        || "/".equals(mediaUri.getRawPath()))
+                || mediaUri.getRawUserInfo() != null
+                || mediaUri.getRawQuery() != null
+                || mediaUri.getRawFragment() != null
+                || liveKitApiKey.isBlank()
+                || liveKitApiSecret.isBlank()) {
+            throw new IllegalStateException(
+                    "MEDIA_ENABLED requires LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET");
         }
     }
 

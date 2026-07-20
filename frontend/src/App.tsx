@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react'
 import {
   QueryClient,
   QueryClientProvider,
@@ -63,8 +63,11 @@ import {
   MyProfileScreen,
   PublicProfileScreen,
 } from './profile/ProfileScreens'
+import { clearMediaSession } from './features/media/mediaSession'
 
 const matchQueryKey = (session: MatchSession) => ['match', session.matchId]
+const MatchMediaPanel = lazy(() => import('./features/media/MatchMediaPanel')
+  .then((module) => ({ default: module.MatchMediaPanel })))
 
 function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () => void }) {
   const queryClient = useQueryClient()
@@ -73,6 +76,7 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatError, setChatError] = useState<ChatError | null>(null)
   const [sendChat, setSendChat] = useState<(body: string) => boolean>(() => () => false)
+  const [opponentBlocked, setOpponentBlocked] = useState(false)
   const query = useQuery({
     queryKey: matchQueryKey(session),
     queryFn: () => getPlayerView(session.matchId),
@@ -219,16 +223,35 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
         />
       )}
       {query.data.playerTwoOccupied && (
-        <MatchChatPanel
-          matchId={session.matchId}
-          connected={connectionState === 'SYNCHRONIZED'}
-          messages={chatMessages}
-          error={chatError}
-          onSend={sendChat}
-        />
+        <>
+          <Suspense fallback={<p role="status">Loading optional media controls…</p>}>
+            <MatchMediaPanel
+              key={`media-${latestParticipantCycle(query.data.events)}`}
+              accountId={query.data.requestingPlayerId}
+              matchId={session.matchId}
+              participantCycle={latestParticipantCycle(query.data.events)}
+              blocked={opponentBlocked}
+            />
+          </Suspense>
+          <MatchChatPanel
+            matchId={session.matchId}
+            connected={connectionState === 'SYNCHRONIZED'}
+            messages={chatMessages}
+            error={chatError}
+            onSend={sendChat}
+            onBlockedChange={setOpponentBlocked}
+          />
+        </>
       )}
     </main>
   )
+}
+
+function latestParticipantCycle(events: { sequence: number; type: string }[]): string {
+  return String(events.reduce((latest, event) =>
+    event.type === 'PLAYER_JOINED' || event.type === 'PLAYER_LEFT'
+      ? Math.max(latest, event.sequence)
+      : latest, 0))
 }
 
 function connectionLabel(state: MatchConnectionState): string {
@@ -339,6 +362,7 @@ function AccountNavigation({ account }: { account: CurrentAccount }) {
       <span>{account.displayName}</span>
       {!account.emailVerified && <Link to="/verification-status">Verify email</Link>}
       <button type="button" onClick={() => void logout().then(() => {
+        clearMediaSession()
         clearSession()
         queryClient.clear()
         navigate('/login', { replace: true })
@@ -365,6 +389,7 @@ function ApplicationRoutes() {
   const navigate = useNavigate()
   useEffect(() => {
     const expired = () => {
+      clearMediaSession()
       clearSession()
       queryClient.clear()
       setSessionExpired(true)
