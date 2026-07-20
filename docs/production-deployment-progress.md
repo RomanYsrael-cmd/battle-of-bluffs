@@ -18,12 +18,12 @@ Updated: 2026-07-20 (Asia/Manila)
 - Frontend project: Vercel `games-of-the-generals`, GitHub repository connected, production branch `main`, root directory `frontend`.
 - Ready Vercel production deployment: `dpl_ENorJRP3ZuhTGXLB2d82Q38NLtbC`, built from `25c21ebc44295f6e29812c487131ec5fe583f2de`.
 - Stable generated alias: `https://games-of-the-generals-phi.vercel.app`.
-- Intended frontend origin: `https://bluffs.romanlms.com`; it is attached to the Vercel project but awaits its Cloudflare DNS record.
+- Production frontend origin: `https://bluffs.romanlms.com`; Cloudflare DNS is DNS-only at `76.76.21.21`, Vercel reports the production deployment Ready, and HTTPS is active.
 - REST: `https://romanlms.com/bluffs/api`.
 - WebSocket: `wss://romanlms.com/bluffs/ws`.
 - Minimal health: `https://romanlms.com/bluffs/health`.
 - Backend: `gotg-backend.service`, running as `gotg:gotg` on loopback `127.0.0.1:8090`.
-- Current backend release: `/opt/gotg/releases/25c21ebc44295f6e29812c487131ec5fe583f2de/gotg-backend.jar`.
+- Current backend release: `/opt/gotg/releases/dcaea23c37932f7e38608b70485b5a6369b9a2cc/gotg-backend.jar`, deployed from the exact successful main artifact by the dedicated runner.
 - Database: `battle_of_bluffs_prod`; bounded non-superuser role: `gotg_app`; Hikari minimum 1, maximum 8, 10-second connection timeout.
 - Mail: SpaceMail `mail.spacemail.com:587`, authenticated STARTTLS, protected `romanlms.com` sender credential.
 
@@ -37,7 +37,7 @@ Updated: 2026-07-20 (Asia/Manila)
 - Added only `/bluffs/api/`, `/bluffs/ws`, and `/bluffs/health` to `/etc/nginx/sites-available/romanlms`. Backup: `/opt/gotg/backups/romanlms.nginx.20260720-082258.conf`.
 - Corrected deploy-helper backup: `/opt/gotg/backups/gotg-deploy-backend.20260720-082735`.
 - No Cloudflare Tunnel configuration or token changed. nginx continues to listen on `127.0.0.1:8081` behind the existing tunnel.
-- Staged official GitHub Actions runner 2.335.1 at `/opt/gotg-runner` as `gotg-runner`; its published SHA-256 was verified and it cannot read `/opt/gotg/config/gotg.env`. Registration and service installation are not complete because GitHub's registration-token endpoint repeatedly returns HTTP 503.
+- Installed official GitHub Actions runner 2.335.1 at `/opt/gotg-runner` as `gotg-runner`; its published SHA-256 was verified, it cannot read `/opt/gotg/config/gotg.env`, and its only sudo permission is the fixed root-owned GOTG deployment helper. Repository runner `gotg-production-01` is online with the dedicated `gotg-production` label. The stale queued deployment was cancelled before registration; exact-main run `29710691020` then deployed successfully.
 - The existing RomanLMS runner and service were not altered.
 
 ## Validation completed
@@ -47,7 +47,7 @@ Updated: 2026-07-20 (Asia/Manila)
 - Playwright: all five isolated local platform flows passed in 1.0 minute after explicitly routing Vite's development proxy and browser runtime to the same temporary backend. Push and pull-request E2E checks also passed.
 - Vercel: all required deep links return 200; static hashed assets return 200; CSP, HSTS, nosniff, frame denial, referrer, and permissions headers are present; required REST/WebSocket URLs are embedded; server-secret markers and source maps are absent.
 - Flyway applied and validated only version 1 in `battle_of_bluffs_prod`. Flyway clean and Hibernate mutation remain disabled.
-- SpaceMail authentication succeeded with TLS 1.3 and `TLS_AES_256_GCM_SHA384`; the From domain is `romanlms.com`. No unapproved message was sent.
+- SpaceMail authentication succeeded with TLS 1.3 and `TLS_AES_256_GCM_SHA384`; the From domain is `romanlms.com`. Real verification and password-reset messages reached the explicitly controlled Gmail address, and their links used `https://bluffs.romanlms.com`.
 - Exact-origin CORS preflight succeeds for `https://bluffs.romanlms.com`; hostile-origin preflight returns 403. Unauthorized REST returns 401 and `/api/dev/**` is absent.
 - Public and internal GOTG health return `UP`. Public and internal RomanLMS health return `UP`; the RomanLMS homepage returns 200.
 - `gotg-backend.service`, `romanlms-backend.service`, nginx, cloudflared, and PostgreSQL are active. GOTG uses approximately 388 MiB under its 1 GiB ceiling; server memory, disk, and PostgreSQL connection headroom remain safe.
@@ -56,10 +56,19 @@ Updated: 2026-07-20 (Asia/Manila)
 - A non-destructive rollback dry run resolved the prior JAR and validated the saved nginx configuration with `nginx -t`; no live rollback or RomanLMS restart was performed.
 - No secret value was printed or committed. The generated local Vercel OIDC env file was deleted after linking.
 
-## Remaining blockers
+## Production validation completed
 
-- Cloudflare DNS: Vercel explicitly requires `A bluffs.romanlms.com 76.76.21.21`. No authorized Cloudflare DNS API credential was found, so no DNS record was changed. The record must be added DNS-only without changing apex, mail, nameservers, or tunnel records.
-- Production email delivery: SMTP TLS/authentication is proven, but verification and reset delivery require an explicitly controlled recipient address.
-- Production authentication, authenticated WebSocket, casual, ranked, restart/persistence, and browser-origin smoke tests require the custom domain and controlled accounts.
-- Dedicated runner: official files are staged securely, but GitHub repeatedly returned HTTP 503 before issuing a registration token. The current exact-main deploy workflow remains pending; manual atomic deployment is operational.
-- Do not create `v0.3.0-production-alpha` until the DNS, delivery, and complete production smoke tests pass.
+- Authoritative and public DNS return only `76.76.21.21`; the custom domain serves HTTP 200 with a valid certificate for `bluffs.romanlms.com`.
+- The home page and production deep links for authentication, lobby, profile, leaderboard, and game routes reload with HTTP 200. The public bundle contains only the intended REST and WebSocket endpoints, has no server-secret markers or source maps, and retains the production security headers.
+- Three controlled production accounts registered. Real verification delivery was proven and the primary and Alpha accounts activated. Browser login passed for all three accounts; logout invalidated the primary session and a fresh login succeeded.
+- Forgot-password delivery and the Vercel reset URL were proven. The fresh reset token succeeded, invalidated the existing session and old password, and allowed login only with the new password. No active reset token remains.
+- Authenticated WebSocket synchronization, casual room creation/join, both formations, chat, a legal move, resignation, terminal disclosure, and history passed through the production URLs.
+- Ranked matchmaking paired the two verified accounts. PostgreSQL contains exactly two rating-change rows for the single ranked match, one per participant, with no duplicates; each player has exactly one rated game and the leaderboard/profile views updated.
+- Outsider REST and WebSocket access failed, active opponent ranks were absent from REST, DOM, and accessibility output, and hostile chat remained inert text.
+- Abandoned-room recovery, cancellation, guest replacement, and active-game recovery passed. A coordinated test restarted only `gotg-backend.service`, re-authenticated both players, recovered the exact persisted open match in `FORMATION`, and cleaned it up normally.
+- RomanLMS remained HTTP 200/`UP` throughout. `romanlms-backend.service` retained its original `2026-07-18 06:22:37 PST` activation timestamp and `NRestarts=0`; its runner, backups, database contents, service, and deployment path were not changed.
+
+## Release status
+
+- No external production blocker remains.
+- All validation gates for annotated release tag `v0.3.0-production-alpha` have passed. Create and push the tag only from the final merged documentation commit after its CI and exact-main deployment succeed.

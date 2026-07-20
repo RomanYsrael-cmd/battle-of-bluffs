@@ -69,18 +69,10 @@ The non-destructive dry run validated the prior JAR target and saved nginx file 
 
 Vercel reported the exact required record as `A bluffs.romanlms.com 76.76.21.21`. Add only that DNS-only Cloudflare record. Do not alter the apex, MX, SPF, DKIM, DMARC, nameservers, tunnel records, or Cloudflare Tunnel token. Then run Vercel domain verification and validate DNS, TLS, headers, deep links, and browser API/WebSocket access before treating the custom domain as active.
 
-## Dedicated runner completion
+## Dedicated runner
 
-Runner 2.335.1 is staged at `/opt/gotg-runner` under `gotg-runner`. Once GitHub's runner API is available, obtain a short-lived repository registration token and run the following with the placeholder supplied securely rather than recorded in shell history or logs:
+Runner 2.335.1 is registered as repository runner `gotg-production-01` from `/opt/gotg-runner` under the isolated `gotg-runner` account. Its service is `actions.runner.RomanYsrael-cmd-battle-of-bluffs.gotg-production-01.service`, and workflows must require `[self-hosted, linux, x64, gotg-production]`.
 
-```bash
-cd /opt/gotg-runner
-sudo -u gotg-runner ./config.sh --unattended \
-  --url https://github.com/RomanYsrael-cmd/battle-of-bluffs \
-  --token '<short-lived-registration-token>' \
-  --name gotg-production-01 \
-  --labels gotg-production \
-  --work _work
-```
+The runner cannot traverse or read `/opt/gotg/config/gotg.env`. `/etc/sudoers.d/gotg-runner` permits only `/usr/local/bin/gotg-deploy-backend`; it does not grant shell access, RomanLMS deployment access, or unrestricted sudo. The existing RomanLMS runner remains separate and unchanged.
 
-Then install its service and the validated `/etc/sudoers.d/gotg-runner` rule. Never reuse the RomanLMS runner. Confirm the runner cannot read `/opt/gotg/config/gotg.env` and may invoke only `/usr/local/bin/gotg-deploy-backend` through sudo.
+Before runner maintenance or re-registration, check GitHub Status, cancel any stale queued deployment, verify the intended exact-main SHA, and keep the manual atomic deployment path operational. Never place a registration token in a command argument, shell history, Git, or logs.
