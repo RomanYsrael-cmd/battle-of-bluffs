@@ -12,7 +12,8 @@ class ProductionConfigurationValidatorTest {
         MockEnvironment environment = new MockEnvironment();
         environment.setActiveProfiles("prod");
         ProductionConfigurationValidator validator = new ProductionConfigurationValidator(
-                "https://play.example.com", "security@example.com", true, true, environment);
+                "https://play.example.com", "security@example.com", true, true,
+                false, "", "", "", environment);
 
         assertThatCode(validator::validate).doesNotThrowAnyException();
     }
@@ -22,13 +23,15 @@ class ProductionConfigurationValidatorTest {
         MockEnvironment production = new MockEnvironment();
         production.setActiveProfiles("prod");
         assertThatThrownBy(() -> new ProductionConfigurationValidator(
-                "http://play.example.com", "security@example.com", true, true, production).validate())
+                "http://play.example.com", "security@example.com", true, true,
+                false, "", "", "", production).validate())
                 .isInstanceOf(IllegalStateException.class);
 
         MockEnvironment mixed = new MockEnvironment();
         mixed.setActiveProfiles("prod", "dev");
         assertThatThrownBy(() -> new ProductionConfigurationValidator(
-                "https://play.example.com", "security@example.com", true, true, mixed).validate())
+                "https://play.example.com", "security@example.com", true, true,
+                false, "", "", "", mixed).validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("cannot be combined");
     }
@@ -38,14 +41,16 @@ class ProductionConfigurationValidatorTest {
         MockEnvironment environment = new MockEnvironment();
         environment.setActiveProfiles("prod");
         assertThatThrownBy(() -> new ProductionConfigurationValidator(
-                "https://play.example.com", "security@example.com", false, true, environment).validate())
+                "https://play.example.com", "security@example.com", false, true,
+                false, "", "", "", environment).validate())
                 .hasMessageContaining("Secure");
         assertThatThrownBy(() -> new ProductionConfigurationValidator(
-                "https://play.example.com", "security@example.com", true, false, environment).validate())
+                "https://play.example.com", "security@example.com", true, false,
+                false, "", "", "", environment).validate())
                 .hasMessageContaining("STARTTLS");
         assertThatThrownBy(() -> new ProductionConfigurationValidator(
                 "https://play.example.com", "security@example.com\r\nBcc: attacker@example.com",
-                true, true, environment).validate())
+                true, true, false, "", "", "", environment).validate())
                 .hasMessageContaining("MAIL_FROM");
     }
 
@@ -54,7 +59,30 @@ class ProductionConfigurationValidatorTest {
         MockEnvironment environment = new MockEnvironment().withProperty("debug", "true");
         environment.setActiveProfiles("prod");
         assertThatThrownBy(() -> new ProductionConfigurationValidator(
-                "https://play.example.com", "security@example.com", true, true, environment).validate())
+                "https://play.example.com", "security@example.com", true, true,
+                false, "", "", "", environment).validate())
                 .hasMessageContaining("diagnostic mode");
+    }
+
+    @Test
+    void mediaIsFailClosedAndRequiresSecureCompleteLiveKitConfiguration() {
+        MockEnvironment environment = new MockEnvironment();
+        environment.setActiveProfiles("prod");
+        assertThatThrownBy(() -> new ProductionConfigurationValidator(
+                "https://play.example.com", "security@example.com", true, true,
+                true, "", "", "", environment).validate())
+                .hasMessageContaining("MEDIA_ENABLED");
+        assertThatThrownBy(() -> new ProductionConfigurationValidator(
+                "https://play.example.com", "security@example.com", true, true,
+                true, "ws://media.example.com", "key", "secret", environment).validate())
+                .hasMessageContaining("MEDIA_ENABLED");
+        assertThatThrownBy(() -> new ProductionConfigurationValidator(
+                "https://play.example.com", "security@example.com", true, true,
+                true, "wss://self-hosted.example.com", "key", "secret", environment).validate())
+                .hasMessageContaining("MEDIA_ENABLED");
+        assertThatCode(() -> new ProductionConfigurationValidator(
+                "https://play.example.com", "security@example.com", true, true,
+                true, "wss://example.livekit.cloud", "key", "secret", environment).validate())
+                .doesNotThrowAnyException();
     }
 }

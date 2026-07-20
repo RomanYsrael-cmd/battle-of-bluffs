@@ -22,11 +22,13 @@ The named PostgreSQL volume is persistent. Normal startup must not use `down -v`
 
 Run `cd backend && ./mvnw spring-boot:run`, then `cd frontend && npm ci && npm run dev` in another terminal. Confirm `/actuator/health/liveness`, the landing page and Mailpit UI. Registration messages contain local verification links; reset messages use the same inbox.
 
-Development deliberately leaves `VITE_API_BASE_URL` and `VITE_WS_URL` unset so Vite proxies same-origin `/api` and `/ws` requests to `VITE_DEV_API_TARGET` (default `http://localhost:8080`). The production Vercel values are public routing configuration, not local secrets; do not put database, session, or mail credentials in any `VITE_*` variable.
+Development deliberately leaves `VITE_API_BASE_URL`, `VITE_WS_URL`, and `VITE_LIVEKIT_URL` unset so Vite proxies same-origin `/api` and `/ws` requests to `VITE_DEV_API_TARGET` (default `http://localhost:8080`) while media remains off. The production Vercel values are public routing configuration, not local secrets; never put `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, database, session, or mail credentials in a `VITE_*` variable.
 
 ## Configuration
 
 `.env.example` contains safe datasource, Compose, cookie, frontend-origin, SMTP, sender, account/chat rate-limit and ranked timer examples. Spring reads these environment variables through `application.yml`. Use real secrets outside source control for any nonlocal environment.
+
+Media unit/component tests mock the provider boundary and require no camera, microphone, or LiveKit account. To exercise a real development project, set `MEDIA_ENABLED=true`, `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` for the backend and set only the same public URL as `VITE_LIVEKIT_URL` for Vite. Never use production credentials for local tests. See [audio-video.md](audio-video.md).
 
 The timer values are ISO-8601-compatible shorthand accepted by Spring (`5m`, `15m`, `5s`). Changing them affects newly opened or legacy-recovered deadlines; already persisted absolute deadlines and remaining times remain authoritative.
 

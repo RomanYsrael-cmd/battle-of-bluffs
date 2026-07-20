@@ -45,6 +45,13 @@ app:
     absolute-timeout: ${SESSION_ABSOLUTE_TIMEOUT:12h}
   mail:
     from: ${MAIL_FROM:no-reply@games-of-the-generals.local}
+  media:
+    enabled: ${MEDIA_ENABLED:false}
+    url: ${LIVEKIT_URL:}
+    api-key: ${LIVEKIT_API_KEY:}
+    api-secret: ${LIVEKIT_API_SECRET:}
+    token-ttl: ${LIVEKIT_TOKEN_TTL:5m}
+    post-match-window: ${MEDIA_POST_MATCH_WINDOW:10m}
   match:
     formation-limit: ${RANKED_FORMATION_LIMIT:5m}
     initial-clock: ${RANKED_INITIAL_CLOCK:15m}
@@ -72,6 +79,9 @@ app:
     chat:
       limit: ${CHAT_RATE_LIMIT:5}
       window: ${CHAT_RATE_WINDOW:10s}
+    media-token:
+      limit: ${MEDIA_TOKEN_RATE_LIMIT:10}
+      window: ${MEDIA_TOKEN_RATE_WINDOW:1m}
 
 management:
   endpoints:

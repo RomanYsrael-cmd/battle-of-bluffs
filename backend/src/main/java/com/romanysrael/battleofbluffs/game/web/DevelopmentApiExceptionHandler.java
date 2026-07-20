@@ -3,6 +3,7 @@ package com.romanysrael.battleofbluffs.game.web;
 import com.romanysrael.battleofbluffs.game.application.*;
 import com.romanysrael.battleofbluffs.matchmaking.MatchmakingException;
 import com.romanysrael.battleofbluffs.user.AccountException;
+import com.romanysrael.battleofbluffs.media.MediaException;
 import com.romanysrael.battleofbluffs.social.ChatException;
 import java.time.Instant;
 import java.util.stream.Collectors;
@@ -12,6 +13,19 @@ import org.springframework.web.bind.annotation.*;
 
 @RestControllerAdvice
 public final class DevelopmentApiExceptionHandler {
+    @ExceptionHandler(MediaException.class)
+    ResponseEntity<ApiError> media(MediaException exception) {
+        HttpStatus status = switch (exception.code()) {
+            case "MEDIA_DISABLED" -> HttpStatus.SERVICE_UNAVAILABLE;
+            case "MEDIA_RATE_LIMITED" -> HttpStatus.TOO_MANY_REQUESTS;
+            case "MEDIA_NOT_ALLOWED", "MEDIA_BLOCKED" -> HttpStatus.FORBIDDEN;
+            case "MEDIA_OPPONENT_UNAVAILABLE", "MEDIA_MATCH_ENDED" -> HttpStatus.CONFLICT;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return ResponseEntity.status(status).body(new ApiError(
+                exception.code(), exception.getMessage(), Instant.now()));
+    }
+
     @ExceptionHandler(AccountException.class)
     ResponseEntity<ApiError> account(AccountException exception) {
         HttpStatus status = switch (exception.code()) {

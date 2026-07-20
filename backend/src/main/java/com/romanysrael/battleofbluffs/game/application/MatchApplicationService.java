@@ -443,6 +443,21 @@ public final class MatchApplicationService {
         }
     }
 
+    /** Read-only authorization context for optional participant media. */
+    public MediaMatchContext mediaContext(UUID matchId, String requestingPlayerId) {
+        PrivateMatch match = byId(matchId);
+        synchronized (match) {
+            PlayerSide side = member(match, requestingPlayerId);
+            String opponentId = match.players.get(side.opponent());
+            return new MediaMatchContext(
+                    match.id,
+                    opponentId,
+                    match.participantCycleStartedAt,
+                    terminal(match),
+                    terminal(match) ? match.updatedAt : null);
+        }
+    }
+
     public MatchSummary summary(UUID matchId) {
         PrivateMatch match = byId(matchId);
         synchronized (match) {
@@ -519,6 +534,14 @@ public final class MatchApplicationService {
             UUID matchId,
             PlayerMatchView playerOneView,
             PlayerMatchView playerTwoView) {
+    }
+
+    public record MediaMatchContext(
+            UUID matchId,
+            String opponentId,
+            Instant participantCycleStartedAt,
+            boolean terminal,
+            Instant terminalAt) {
     }
 
     public record CurrentMatchSummary(

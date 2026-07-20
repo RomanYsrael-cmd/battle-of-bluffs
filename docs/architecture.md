@@ -25,6 +25,7 @@ PostgreSQL snapshots are authoritative across restarts. In-memory aggregate obje
 - `competition` — transactional Elo ledger, tiers and leaderboards
 - `profile` — private/public profiles and authorization-scoped history
 - `matchmaking` — verified-player in-memory queue that creates persistent ranked matches
+- `media` — read-only match/account authorization, throttling, opaque LiveKit room identity and short-lived least-privilege token issuance
 
 ## Data and trust boundaries
 
@@ -38,7 +39,7 @@ The simple STOMP broker is an in-process delivery mechanism, not the source of t
 
 Flyway owns schema evolution. JPA has `ddl-auto: none`. Schedulers evaluate deadlines, send timer synchronization and reconcile missing rating ledgers. All time-sensitive services use the injected UTC `Clock`, enabling deterministic unit tests.
 
-There are no microservices, Redis, JPA-backed queue, video, voice, LiveKit or external identity provider in this milestone.
+LiveKit Cloud is an optional non-authoritative transport. The browser requests a five-minute participant token only after explicit consent. Media room names and participant identities are server-derived opaque HMAC values bound to the persisted participant cycle, so guest replacement rotates the room without exposing either account. Mic/camera tracks never enter Spring, PostgreSQL, STOMP, match presence, clocks, results, ratings, or chat. LiveKit loss therefore cannot change a match version or reconnection grace. There are no microservices, Redis, JPA-backed queue, recording services, or external identity providers.
 
 ## Security trust boundaries
 

@@ -14,6 +14,7 @@ interface MatchChatPanelProps {
   messages: ChatMessage[]
   error: ChatError | null
   onSend: (body: string) => boolean
+  onBlockedChange?: (blocked: boolean) => void
 }
 
 const reportCategories: { value: ReportCategory; label: string }[] = [
@@ -30,6 +31,7 @@ export function MatchChatPanel({
   messages,
   error,
   onSend,
+  onBlockedChange,
 }: MatchChatPanelProps) {
   const [collapsed, setCollapsed] = useState(true)
   const [unread, setUnread] = useState(0)
@@ -52,7 +54,10 @@ export function MatchChatPanel({
     mutationFn: () => moderation.data?.blockedByYou
       ? unblockOpponent(matchId)
       : blockOpponent(matchId),
-    onSuccess: (status) => moderation.refetch().then(() => status),
+    onSuccess: (status) => {
+      onBlockedChange?.(status.blockedByYou)
+      return moderation.refetch().then(() => status)
+    },
   })
   const reportMutation = useMutation({
     mutationFn: () => reportOpponent(
@@ -70,6 +75,10 @@ export function MatchChatPanel({
     () => muted ? messages.filter((message) => message.ownMessage) : messages,
     [messages, muted],
   )
+
+  useEffect(() => {
+    if (moderation.data) onBlockedChange?.(moderation.data.blockedByYou)
+  }, [moderation.data, onBlockedChange])
 
   useEffect(() => {
     const newOpponentMessages = messages.filter((message) =>

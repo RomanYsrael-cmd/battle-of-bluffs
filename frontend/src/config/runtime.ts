@@ -1,5 +1,6 @@
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
 const configuredWebSocketUrl = import.meta.env.VITE_WS_URL?.replace(/\/$/, '') ?? ''
+export const mediaServerUrl = import.meta.env.VITE_LIVEKIT_URL?.replace(/\/$/, '') ?? ''
 
 export function resolveApiUrl(path: string, apiBaseUrl = configuredApiBaseUrl): string {
   if (!apiBaseUrl) return path
