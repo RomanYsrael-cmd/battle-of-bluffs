@@ -14,6 +14,7 @@ frontend/.vite/
 frontend/*.tsbuildinfo
 frontend/test-results/
 frontend/playwright-report/
+frontend/.vercel/
 
 # Editors and operating systems
 .idea/
