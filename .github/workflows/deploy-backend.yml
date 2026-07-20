@@ -1,0 +1,36 @@
+name: Deploy backend production
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: [self-hosted, linux, x64, gotg-production]
+    concurrency:
+      group: gotg-production-backend
+      cancel-in-progress: false
+    steps:
+      - name: Download exact CI backend artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: backend-jar-${{ github.event.workflow_run.head_sha }}
+          path: artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+      - name: Deploy exact successful commit
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          jar_path=$(find artifact -maxdepth 1 -type f -name '*.jar' -print -quit)
+          test -n "$jar_path"
+          sudo /usr/local/bin/gotg-deploy-backend "$jar_path" "$DEPLOY_SHA"

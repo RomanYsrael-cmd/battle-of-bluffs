@@ -7,6 +7,8 @@ Games of the Generals uses authenticated STOMP over a native WebSocket for parti
 - Endpoint: `GET /ws` (WebSocket upgrade)
 - Authentication: the existing Spring Security `JSESSIONID` HTTP session
 - Allowed browser origin: `app.frontend-url` / `FRONTEND_URL`
+
+Production publishes the endpoint as `wss://romanlms.com/bluffs/ws`. Vercel embeds that exact URL through `VITE_WS_URL`; nginx preserves the browser `Origin` while translating the handshake to internal `/ws`. Only `https://bluffs.romanlms.com` is accepted in the production profile. Preview `*.vercel.app` origins are not trusted.
 - Heartbeat: 10 seconds in both directions
 - Browser reconnect delay: 3 seconds
 

@@ -11,3 +11,5 @@ Report suspected vulnerabilities privately to the repository owner; do not inclu
 7. Record a blameless post-incident timeline, detection gaps, rotations, data handling, corrective owners and deadlines.
 
 Keep an offline contact path and tested database restore procedure. Logs and browser artifacts have short retention; preserve them under access control only when an active investigation requires it.
+
+Production rollback assets are deliberately separated: Vercel can promote the prior frontend deployment; `/usr/local/bin/gotg-deploy-backend` can atomically restore the prior versioned GOTG JAR; and the timestamped nginx backup can be restored only after `nginx -t`. Database incidents use the existing pgBackRest cluster recovery process—never Flyway clean or ad-hoc destructive reverse migrations. Do not restart, redeploy, or alter RomanLMS while containing a GOTG-only incident unless evidence proves shared infrastructure is affected.

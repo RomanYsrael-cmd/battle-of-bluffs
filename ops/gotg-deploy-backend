@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly artifact=${1:-}
+readonly commit_sha=${2:-}
+readonly service_name=gotg-backend.service
+readonly release_root=/opt/gotg/releases
+readonly stable_jar=/opt/gotg/app/gotg-backend.jar
+readonly internal_health=http://127.0.0.1:8090/actuator/health
+readonly public_health=https://romanlms.com/bluffs/health
+
+if [[ $EUID -ne 0 ]]; then
+  echo "gotg-deploy-backend must run as root" >&2
+  exit 2
+fi
+if [[ ! -f $artifact || ! -r $artifact ]]; then
+  echo "artifact does not exist or is unreadable" >&2
+  exit 2
+fi
+if [[ ! $commit_sha =~ ^[0-9a-f]{40}$ ]]; then
+  echo "commit must be a full lowercase Git SHA" >&2
+  exit 2
+fi
+
+readonly release_dir="$release_root/$commit_sha"
+readonly release_jar="$release_dir/gotg-backend.jar"
+previous_target=$(readlink -f "$stable_jar" 2>/dev/null || true)
+
+install -d -o root -g gotg -m 0750 "$release_dir"
+install -o root -g gotg -m 0640 "$artifact" "$release_jar.tmp"
+mv -f "$release_jar.tmp" "$release_jar"
+ln -sfn "$release_jar" "$stable_jar.next"
+mv -Tf "$stable_jar.next" "$stable_jar"
+
+health_ok() {
+  curl --fail --silent --show-error --max-time 10 "$internal_health" >/dev/null \
+    && curl --fail --silent --show-error --max-time 15 "$public_health" >/dev/null
+}
+
+systemctl restart "$service_name"
+for attempt in {1..30}; do
+  if health_ok; then
+    logger -t gotg-deploy "deployed commit $commit_sha"
+    echo "deployed $commit_sha"
+    exit 0
+  fi
+  sleep 2
+done
+
+logger -t gotg-deploy "health failed for commit $commit_sha; rolling back"
+if [[ -n $previous_target && -f $previous_target ]]; then
+  ln -sfn "$previous_target" "$stable_jar.rollback"
+  mv -Tf "$stable_jar.rollback" "$stable_jar"
+  systemctl restart "$service_name"
+  for attempt in {1..30}; do
+    if health_ok; then
+      echo "deployment failed; previous release restored" >&2
+      exit 1
+    fi
+    sleep 2
+  done
+else
+  systemctl stop "$service_name"
+fi
+
+echo "deployment and automatic rollback health checks failed" >&2
+exit 1

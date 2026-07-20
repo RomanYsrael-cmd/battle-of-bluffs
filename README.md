@@ -4,6 +4,8 @@ Games of the Generals is a local-development-ready, server-authoritative impleme
 
 Production must use `SPRING_PROFILES_ACTIVE=prod`, external database/SMTP secrets and an exact HTTPS `FRONTEND_URL`; the development Compose stack and sample credentials are not production-safe. Review [production deployment security](docs/production-deployment-security.md), [security controls](docs/security.md), and the [production audit](docs/security-audit-production.md). Report vulnerabilities privately to the repository owner without live secrets or personal data.
 
+The production frontend is built for `https://bluffs.romanlms.com` with public `VITE_API_BASE_URL=https://romanlms.com/bluffs/api` and `VITE_WS_URL=wss://romanlms.com/bluffs/ws`. The dedicated backend binds only to `127.0.0.1:8090`; nginx translates the public `/bluffs` routes. See the [production runbook](docs/production-deployment-runbook.md) and [deployment progress](docs/production-deployment-progress.md). Server secrets are never Vite variables or repository files.
+
 Video and voice are intentionally outside this project.
 
 ## Architecture

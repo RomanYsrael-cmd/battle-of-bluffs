@@ -1,5 +1,6 @@
 import { Client, type IMessage } from '@stomp/stompjs'
 import type { ChatError, ChatMessage, PlayerMatchView } from '../api/types'
+import { resolveWebSocketUrl } from '../config/runtime'
 
 export type MatchConnectionState =
   | 'CONNECTING'
@@ -52,9 +53,8 @@ export function connectMatchUpdates(
   matchId: string,
   callbacks: MatchSocketCallbacks,
 ): MatchRealtimeConnection {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const client = new Client({
-    brokerURL: `${protocol}//${window.location.host}/ws`,
+    brokerURL: resolveWebSocketUrl(),
     reconnectDelay: 3_000,
     heartbeatIncoming: 10_000,
     heartbeatOutgoing: 10_000,

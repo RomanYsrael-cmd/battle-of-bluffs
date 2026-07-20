@@ -1,3 +1,5 @@
+import { resolveApiUrl } from '../config/runtime'
+
 export class HttpApiError extends Error {
   constructor(
     public readonly code: string,
@@ -16,10 +18,9 @@ interface CsrfResponse {
 }
 
 let csrfRequest: Promise<CsrfResponse> | null = null
-const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ?? ''
 
 async function csrf(): Promise<CsrfResponse> {
-  csrfRequest ??= fetch(`${configuredBaseUrl}/api/auth/csrf`, { credentials: 'include' })
+  csrfRequest ??= fetch(resolveApiUrl('/api/auth/csrf'), { credentials: 'include' })
     .then((response) => {
       if (!response.ok) throw new HttpApiError('CSRF_UNAVAILABLE', 'Security token unavailable.', response.status)
       return response.json() as Promise<CsrfResponse>
@@ -40,7 +41,7 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
     headers.set(csrfToken.headerName, csrfToken.token)
   }
 
-  const response = await fetch(`${configuredBaseUrl}${path}`, {
+  const response = await fetch(resolveApiUrl(path), {
     ...init,
     headers,
     credentials: 'include',

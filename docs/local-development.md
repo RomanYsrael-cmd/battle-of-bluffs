@@ -22,6 +22,8 @@ The named PostgreSQL volume is persistent. Normal startup must not use `down -v`
 
 Run `cd backend && ./mvnw spring-boot:run`, then `cd frontend && npm ci && npm run dev` in another terminal. Confirm `/actuator/health/liveness`, the landing page and Mailpit UI. Registration messages contain local verification links; reset messages use the same inbox.
 
+Development deliberately leaves `VITE_API_BASE_URL` and `VITE_WS_URL` unset so Vite proxies same-origin `/api` and `/ws` requests to `VITE_DEV_API_TARGET` (default `http://localhost:8080`). The production Vercel values are public routing configuration, not local secrets; do not put database, session, or mail credentials in any `VITE_*` variable.
+
 ## Configuration
 
 `.env.example` contains safe datasource, Compose, cookie, frontend-origin, SMTP, sender, account/chat rate-limit and ranked timer examples. Spring reads these environment variables through `application.yml`. Use real secrets outside source control for any nonlocal environment.
