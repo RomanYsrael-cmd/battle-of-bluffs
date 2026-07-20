@@ -1,0 +1,41 @@
+[Unit]
+Description=Games of the Generals backend
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gotg
+Group=gotg
+WorkingDirectory=/opt/gotg
+EnvironmentFile=/opt/gotg/config/gotg.env
+ExecStart=/usr/bin/java -Xms128m -Xmx768m -XX:+ExitOnOutOfMemoryError -jar /opt/gotg/app/gotg-backend.jar
+Restart=on-failure
+RestartSec=5s
+SuccessExitStatus=143
+TimeoutStopSec=45s
+KillSignal=SIGTERM
+LimitNOFILE=65536
+UMask=0027
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadOnlyPaths=/opt/gotg
+MemoryMax=1G
+TasksMax=512
+
+[Install]
+WantedBy=multi-user.target

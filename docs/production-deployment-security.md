@@ -2,7 +2,7 @@
 
 ## Minimal topology
 
-Internet traffic terminates TLS at a maintained reverse proxy. The proxy serves the built frontend and forwards only `/api` and `/ws` to one private backend instance. The backend alone reaches PostgreSQL and the authenticated STARTTLS SMTP relay. PostgreSQL, SMTP administration and Actuator are never internet-bound. `infra/compose.yaml` is development-only.
+Internet traffic terminates TLS at maintained providers. Vercel serves the frontend at `https://bluffs.romanlms.com`; the existing Cloudflare Tunnel reaches loopback nginx for `romanlms.com`. nginx forwards only `/bluffs/api/`, `/bluffs/ws`, and the minimal `/bluffs/health` route to the GOTG backend on `127.0.0.1:8090`, translating them to `/api/`, `/ws`, and `/actuator/health`. The backend alone reaches loopback PostgreSQL and the authenticated STARTTLS SMTP relay. PostgreSQL, SMTP administration and all other Actuator endpoints are never internet-bound. `infra/compose.yaml` is development-only.
 
 Compose and CI use explicit PostgreSQL/Mailpit versions. During image maintenance, review release notes, resolve the registry's correct multi-architecture digest in CI, update tag and digest together, then run the full backend and browser suites; do not copy a single-architecture digest from an unrelated host.
 
@@ -13,6 +13,8 @@ Forwarded headers are disabled by default (`server.forward-headers-strategy=none
 Start with `SPRING_PROFILES_ACTIVE=prod`. Supply `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `FRONTEND_URL`, `ALLOWED_HOSTS`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, and `MAIL_FROM` through the platform secret/configuration store. `FRONTEND_URL` must be the exact public HTTPS origin. `ALLOWED_HOSTS` is a comma-separated exact hostname allowlist for the public proxy/health-check names, without schemes or paths. Production refuses insecure cookies, non-TLS SMTP, mixed dev/test profiles, unsafe sender values, hostile Host values, missing required variables, and active `DEBUG`/`TRACE` environment flags. Some Linux environments define `DEBUG` for unrelated tooling; explicitly remove it from the backend process environment rather than passing an arbitrary value.
 
 Optional capacity controls include `DB_POOL_MAX_SIZE`, `DB_POOL_MIN_IDLE`, `DB_CONNECTION_TIMEOUT_MS`, `SESSION_IDLE_TIMEOUT`, and `SESSION_ABSOLUTE_TIMEOUT`. Keep the defaults unless load testing justifies a measured change. Never put secrets in `VITE_*`; frontend variables are public bundle content.
+
+The audited shared host uses `DB_POOL_MAX_SIZE=8` and `DB_POOL_MIN_IDLE=1`. Production also sets `SERVER_ADDRESS=127.0.0.1` and `SERVER_PORT=8090`. The Vercel build receives only `VITE_API_BASE_URL` and `VITE_WS_URL`; preview origins are not added to backend CORS or WebSocket Origin validation.
 
 ## Database and backups
 
