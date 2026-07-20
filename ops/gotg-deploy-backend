@@ -33,7 +33,8 @@ ln -sfn "$release_jar" "$stable_jar.next"
 mv -Tf "$stable_jar.next" "$stable_jar"
 
 health_ok() {
-  curl --fail --silent --show-error --max-time 10 "$internal_health" >/dev/null \
+  curl --fail --silent --show-error --max-time 10 \
+    --header 'Host: romanlms.com' "$internal_health" >/dev/null \
     && curl --fail --silent --show-error --max-time 15 "$public_health" >/dev/null
 }
 
