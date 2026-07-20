@@ -149,7 +149,6 @@ function ConnectedMedia({ status, setStatus, onLeave }: {
 }) {
   const room = useRoomContext()
   const remoteParticipants = useRemoteParticipants()
-  const connectionQuality = useConnectionQualityIndicator({ participant: remoteParticipants[0] })
   const [remoteMuted, setRemoteMuted] = useState(false)
   const [remoteHidden, setRemoteHidden] = useState(false)
   const [volume, setVolume] = useState(1)
@@ -191,14 +190,20 @@ function ConnectedMedia({ status, setStatus, onLeave }: {
   return (
     <div className="media-room">
       <StartAudio className="button button--secondary" label="Tap to enable opponent audio" />
-      <p className="media-participant-status" aria-live="polite">
-        {remoteParticipants.length
-          ? `${opponentName} connected · quality ${connectionQuality.quality}`
-          : 'Opponent not connected to media'}
-        {remoteMicrophoneOff ? ' · microphone off' : ''}
-        {remoteMuted ? ' · muted for you' : ''}
-        {remoteHidden ? ' · hidden for you' : ''}
-      </p>
+      {remoteParticipants[0] ? (
+        <ConnectedOpponentStatus
+          participant={remoteParticipants[0]}
+          microphoneOff={remoteMicrophoneOff}
+          muted={remoteMuted}
+          hidden={remoteHidden}
+        />
+      ) : (
+        <p className="media-participant-status" aria-live="polite">
+          Opponent not connected to media
+          {remoteMuted ? ' · muted for you' : ''}
+          {remoteHidden ? ' · hidden for you' : ''}
+        </p>
+      )}
       <div className="media-videos">
         <figure>
           <div className="media-video-frame">
@@ -237,6 +242,24 @@ function ConnectedMedia({ status, setStatus, onLeave }: {
       </div>
       {status === 'RECONNECTING' && <p>Media reconnecting. Gameplay remains connected separately.</p>}
     </div>
+  )
+}
+
+function ConnectedOpponentStatus({ participant, microphoneOff, muted, hidden }: {
+  participant: ReturnType<typeof useRemoteParticipants>[number]
+  microphoneOff: boolean
+  muted: boolean
+  hidden: boolean
+}) {
+  const connectionQuality = useConnectionQualityIndicator({ participant })
+  const opponentName = participant.name || 'Opponent'
+  return (
+    <p className="media-participant-status" aria-live="polite">
+      {`${opponentName} connected · quality ${connectionQuality.quality}`}
+      {microphoneOff ? ' · microphone off' : ''}
+      {muted ? ' · muted for you' : ''}
+      {hidden ? ' · hidden for you' : ''}
+    </p>
   )
 }
 
