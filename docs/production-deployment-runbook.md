@@ -21,6 +21,7 @@
 - Atomic deploy entrypoint: `/usr/local/bin/gotg-deploy-backend`
 - Runtime identity: `gotg:gotg`
 - CI identity: `gotg-runner`, with sudo restricted to the fixed GOTG deployment entrypoint
+- Dedicated runner home: `/opt/gotg-runner` (kept outside `/opt/gotg` so it cannot traverse the protected configuration tree)
 
 The selected database pool is minimum idle 1 and maximum 8. Exact change-time backup paths, JVM limits, runner registration status, and redacted SpaceMail sender status are recorded in [production deployment progress](production-deployment-progress.md).
 
@@ -55,4 +56,31 @@ The selected database pool is minimum idle 1 and maximum 8. Exact change-time ba
 - Frontend: promote the prior healthy Vercel production deployment, then recheck the custom domain and deep links.
 - Database: never run Flyway clean or manually reverse destructive migrations. Preserve forward-compatible migrations and use the existing pgBackRest physical recovery process for disaster recovery. The GOTG database is included in cluster-level backups once created in the protected cluster.
 
-Concrete commands and validated backup paths will be added after server discovery. No rollback step may restart or modify `romanlms-backend.service`.
+Validated rollback assets:
+
+- Previous backend releases remain under `/opt/gotg/releases/<git-sha>/`; use the root-owned atomic deploy entrypoint and verify internal/public health.
+- nginx backup: `/opt/gotg/backups/romanlms.nginx.20260720-082258.conf`.
+- Deploy-helper backup: `/opt/gotg/backups/gotg-deploy-backend.20260720-082735`.
+- Prior healthy Vercel deployment: `dpl_5528qJaYsYoX1mxzwLft39um9eds`; use Vercel rollback/promotion only after inspecting the target.
+
+The non-destructive dry run validated the prior JAR target and saved nginx file without changing the live symlink or reloading nginx. No rollback step may restart or modify `romanlms-backend.service`.
+
+## Custom-domain activation
+
+Vercel reported the exact required record as `A bluffs.romanlms.com 76.76.21.21`. Add only that DNS-only Cloudflare record. Do not alter the apex, MX, SPF, DKIM, DMARC, nameservers, tunnel records, or Cloudflare Tunnel token. Then run Vercel domain verification and validate DNS, TLS, headers, deep links, and browser API/WebSocket access before treating the custom domain as active.
+
+## Dedicated runner completion
+
+Runner 2.335.1 is staged at `/opt/gotg-runner` under `gotg-runner`. Once GitHub's runner API is available, obtain a short-lived repository registration token and run the following with the placeholder supplied securely rather than recorded in shell history or logs:
+
+```bash
+cd /opt/gotg-runner
+sudo -u gotg-runner ./config.sh --unattended \
+  --url https://github.com/RomanYsrael-cmd/battle-of-bluffs \
+  --token '<short-lived-registration-token>' \
+  --name gotg-production-01 \
+  --labels gotg-production \
+  --work _work
+```
+
+Then install its service and the validated `/etc/sudoers.d/gotg-runner` rule. Never reuse the RomanLMS runner. Confirm the runner cannot read `/opt/gotg/config/gotg.env` and may invoke only `/usr/local/bin/gotg-deploy-backend` through sudo.
