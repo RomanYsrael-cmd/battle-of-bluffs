@@ -1,4 +1,5 @@
 import { Client, type IMessage } from '@stomp/stompjs'
+import { resolveWebSocketUrl } from '../config/runtime'
 import type { MatchmakingFound } from './types'
 
 export interface MatchmakingConnection {
@@ -9,9 +10,8 @@ export function connectMatchmaking(
   onFound: (event: MatchmakingFound) => void,
   onState?: (connected: boolean) => void,
 ): MatchmakingConnection {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const client = new Client({
-    brokerURL: `${protocol}//${window.location.host}/ws`,
+    brokerURL: resolveWebSocketUrl(),
     reconnectDelay: 3_000,
     heartbeatIncoming: 10_000,
     heartbeatOutgoing: 10_000,
