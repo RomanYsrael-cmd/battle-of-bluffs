@@ -34,7 +34,15 @@ Room and participant names are HMAC-derived server values bound to the match's p
 6. Build and inspect the public bundle: it may contain the public LiveKit URL, but must contain neither API key nor secret. Start the backend with the `prod` profile once with an intentionally missing LiveKit value and confirm startup fails before restoring the protected value.
 7. Deploy only after backend/frontend/unit/security gates pass. Validate with two verified controlled accounts in separate Chromium contexts: opt-in, initial mic/camera off, independent toggles, device switching, two-way audio/video, local mute/hide/volume, refresh/rejoin, retry after interruption, opponent leaving media while gameplay continues, outsider denial, block denial, and token expiration/renewal.
 
-The existing Vercel CSP intentionally does not include a placeholder or wildcard LiveKit origin. Production media will remain blocked until step 5 is completed with the real project URL.
+Production uses only the exact managed project host `games-of-the-generals-productio-k5zs51ec.livekit.cloud` in `connect-src`, as both `https://` and `wss://`. No LiveKit wildcard is allowed. `Permissions-Policy` remains `camera=(self), microphone=(self)`.
+
+## Production validation (2026-07-21)
+
+Two controlled verified accounts passed the real managed-cloud flow in isolated Chromium contexts. No media token or device request occurred before consent. Each browser published one microphone and one camera track and subscribed to the opponent tracks; remote track state, local opponent mute/hide/volume, self mute/camera-off, device selection, leave/rejoin, blocking, a legal move, chat, clocks, resignation, and the ten-minute post-match issuance window behaved as designed. Microphone denial, camera denial, and a controlled LiveKit signaling failure left the authoritative match view available.
+
+The observed WebRTC path selected UDP with a peer-reflexive candidate. Approximate combined media throughput in the sample was 738 Kbit/s. Browser task CPU for the 51-second end-to-end sample was 6.158 and 5.214 CPU-seconds, with measured JavaScript heaps of 11.9 MiB and 8.5 MiB. These are smoke-test observations from fake Chromium devices, not capacity guarantees.
+
+Token validation confirmed the five-minute TTL, opaque server-derived room and identity, two-participant limit, subscribe and microphone/camera publish grants, and absence of data, screen-share, recording, egress, or room-administration grants. Ten requests succeeded within the configured minute and subsequent requests were rejected with HTTP 429. Issuance did not change the match version. The browser connected directly to LiveKit; server memory remained safely below its 1 GiB service limit and the Spring service carried no media RTP.
 
 ## Operations and incidents
 

@@ -65,6 +65,10 @@ Validated rollback assets:
 - nginx backup: `/opt/gotg/backups/romanlms.nginx.20260720-082258.conf`.
 - Deploy-helper backup: `/opt/gotg/backups/gotg-deploy-backend.20260720-082735`.
 - Prior healthy Vercel deployment: `dpl_5528qJaYsYoX1mxzwLft39um9eds`; use Vercel rollback/promotion only after inspecting the target.
+- Pre-media environment backup: `/opt/gotg/backups/gotg.env.pre-livekit.20260721-040045` (root-only, content verification performed without display).
+- Pre-media backend backup: `/opt/gotg/backups/gotg-backend.pre-livekit.20260721-040045.jar`.
+- Pre-media Git tag and verified bundle: `backup/pre-livekit-production-20260721-034720` and `/home/romanysrael/battle-of-bluffs-pre-livekit-production-20260721-034720.bundle`.
+- Immediately preceding media frontend rollback deployment: `dpl_H2nvmPb8iif4s4nD13GkjyS9tpyF`; inspect before promotion because later healthy deployments also remain available.
 
 The non-destructive dry run validated the prior JAR target and saved nginx file without changing the live symlink or reloading nginx. No rollback step may restart or modify `romanlms-backend.service`.
 
