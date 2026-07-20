@@ -44,6 +44,8 @@ The `prod` profile is fail-closed: database/SMTP credentials, sender and the exa
 
 Responses set CSP, frame restrictions, nosniff, no-referrer and a restrictive Permissions-Policy. The frontend permits camera/microphone only to itself; deployment must add only the exact configured LiveKit Cloud origin to `connect-src`. HSTS applies on secure requests, not ordinary HTTP development. CSP permits inline styles for one current dynamic progress indicator, but never inline scripts or `unsafe-eval`.
 
+Production media security was validated with direct managed-cloud WebRTC, a server-authorized five-minute JWT, no pre-consent token/device request, fail-closed block and post-match rules, and media-only failure behavior. `SEC-MEDIA-001` records the owner's explicit acceptance of the previously disclosed LiveKit credential risk and decision not to rotate it. That exception does not permit the credential in Git, Vercel, logs, artifacts, screenshots, or reports.
+
 ```bash
 cd backend && ./mvnw test && ./mvnw dependency:analyze
 cd ../frontend && npm ci && npm test -- --run && npm run build && npm run test:e2e

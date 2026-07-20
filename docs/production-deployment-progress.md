@@ -1,6 +1,21 @@
 # Production deployment progress
 
-Updated: 2026-07-20 (Asia/Manila)
+Updated: 2026-07-21 (Asia/Manila)
+
+## Optional media production release
+
+- PR #14 merged the optional LiveKit implementation at `f534504ce8dc71c56568d3e6725f928d60a6701f`; PR #15 merged the exact-host CSP at `3bee14069bad373cb25fe8085f84cf89a3eceb2e`; PR #16 fixed the empty-remote-participant startup crash at `39c143bf76e989811d3df5e3f89d293fd46be893`. Every push and pull-request CI, browser E2E, secret scan, dependency scan, CodeQL, and Vercel gate passed before merge.
+- Atomic backend release `39c143bf76e989811d3df5e3f89d293fd46be893` deployed successfully. `gotg-backend.service` is active with zero restarts, public/internal health is healthy, and Actuator environment/configuration endpoints remain unavailable.
+- Vercel production deployment `dpl_84eKLVgKFPmKG3DodGa2EG25BoKN` is Ready and owns `https://bluffs.romanlms.com`. The production bundle contains only the public managed-project URL plus the intended REST and game WebSocket endpoints. Credential-name/JWT scans returned zero, and source maps return 403.
+- CSP permits only `https://games-of-the-generals-productio-k5zs51ec.livekit.cloud` and its exact `wss://` origin in addition to the existing GOTG origins. Permissions-Policy is `camera=(self), microphone=(self)`; CSP has no wildcard or `unsafe-eval`.
+- Protected media configuration is present in `/opt/gotg/config/gotg.env` with preserved `root:gotg` ownership and mode `0640`. API credentials exist only in the protected backend configuration; Vercel contains only `VITE_LIVEKIT_URL` for media.
+- Recovery points: `backup/pre-livekit-production-20260721-034720`, verified bundle `/home/romanysrael/battle-of-bluffs-pre-livekit-production-20260721-034720.bundle`, environment backup `/opt/gotg/backups/gotg.env.pre-livekit.20260721-040045`, backend backup `/opt/gotg/backups/gotg-backend.pre-livekit.20260721-040045.jar`, and prior frontend deployment `dpl_H2nvmPb8iif4s4nD13GkjyS9tpyF`.
+- Real two-user production validation passed with isolated Chromium contexts and fake media devices against the managed LiveKit project. No token or permission request occurred before opt-in. Both users published/subscribed microphone and camera, received remote tracks, exercised self mute/camera, local opponent mute/hide/volume, available input switching, leave/rejoin, block/unblock, a legal move, chat, clocks, resignation, and post-match media.
+- Token validation passed: unauthenticated/CSRF failures, missing-opponent denial, participant issuance, block denial, five-minute TTL, two-participant opaque room, server-derived identity, camera/microphone-only publishing, subscribing, no data/admin/recording grants, ten-per-minute limit followed by HTTP 429, and no match-version mutation. Suspended, deleted, unverified, outsider, and expired-window branches passed the merged backend security suite; production account state was not destructively altered to recreate those branches.
+- Controlled microphone denial, camera denial, and LiveKit signaling failure left the authoritative match available. Leaving/rejoining media did not disconnect the game WebSocket or trigger presence grace; timers, chat, commands, terminal disclosure, and post-match behavior remained independent.
+- The observed path was UDP/peer-reflexive at approximately 738 Kbit/s combined during the sample. Browser task CPU was 6.158/5.214 CPU-seconds over 51 seconds and JavaScript heap was 11.9/8.5 MiB. GOTG memory was approximately 441 MiB afterward under its 1 GiB ceiling; PostgreSQL used 24/100 connections; server memory and disk retained safe headroom. The browser-to-LiveKit WebRTC path and server network behavior confirmed Spring does not proxy media packets.
+- RomanLMS remained 200/UP. Its PID `2003861`, activation time `2026-07-18 06:22:37 PST`, and `NRestarts=0` remained unchanged. RomanLMS, its runner, backups, database, files, and service were not modified or restarted.
+- `SEC-MEDIA-001` is an accepted security risk: the credential was previously disclosed, the owner explicitly declined rotation, and production work did not repeat or commit its value. This must not be reported as a credential that was never exposed.
 
 ## Repository and CI
 
@@ -54,7 +69,7 @@ Updated: 2026-07-20 (Asia/Manila)
 - RomanLMS has not restarted during this deployment (`ActiveEnterTimestamp` remains 2026-07-18 06:22:37 PST, `NRestarts=0`).
 - RomanLMS local, R2, and B2 backup services most recently completed successfully and their timers remain unchanged. The separate GOTG database is covered by the existing physical PostgreSQL backup design.
 - A non-destructive rollback dry run resolved the prior JAR and validated the saved nginx configuration with `nginx -t`; no live rollback or RomanLMS restart was performed.
-- No secret value was printed or committed. The generated local Vercel OIDC env file was deleted after linking.
+- No secret value was printed by production commands or committed. This statement does not negate the separately accepted prior LiveKit disclosure in `SEC-MEDIA-001`. The generated local Vercel OIDC env file was deleted after linking.
 
 ## Production validation completed
 
@@ -70,5 +85,4 @@ Updated: 2026-07-20 (Asia/Manila)
 
 ## Release status
 
-- No external production blocker remains.
-- All validation gates for annotated release tag `v0.3.0-production-alpha` have passed. Create and push the tag only from the final merged documentation commit after its CI and exact-main deployment succeed.
+- Optional production media validation has passed. Create and push annotated tag `v0.4.0-production-media-alpha` only from the final merged documentation commit after its CI, exact-main backend deployment, Vercel production deployment, and final coexistence health checks succeed.

@@ -223,6 +223,15 @@ Protected assets are passwords and accounts, email/profile data, verification/re
 - Status: **FIXED**
 - Correction commit: `7912a30` (`security: remediate vulnerable runtime dependencies`)
 
+### SEC-MEDIA-001 — Previously disclosed LiveKit production credential remains active
+
+- Affected component: managed LiveKit project credential
+- Severity / likelihood / impact: **HIGH** / dependent on access to the prior disclosure / unauthorized token signing and media-room access within grant scope
+- Evidence: the production credential was previously supplied through a workflow channel. The owner explicitly declined rotation and directed deployment to continue without repeating the value.
+- Compensating controls: the credential exists only in protected backend configuration; it is absent from Git, Vercel, browser bundles, process arguments, Actuator, and sampled logs. Tokens are server-authorized, room/identity scoped, limited to two participants, camera/microphone publishing and subscription, and expire after five minutes. Recording, egress, screen share, data publication, and room administration are not granted.
+- Operational rule: do not describe this credential as never exposed. Disable media and reconsider rotation after any new disclosure, suspicious issuance, provider alert, authorization defect, or ownership/personnel change.
+- Status: **ACCEPTED RISK** — the owner explicitly accepted the prior disclosure and declined credential rotation on 2026-07-21.
+
 ## Verified existing controls
 
 CSRF covers normal state-changing endpoints; JSON is not exempt. Development match routes require the explicit `dev` profile. Authentication derives identity from the server session. Token values use 256-bit randomness, SHA-256 storage, expiry, one-time state, replacement invalidation and pessimistic write locking. Suspended/deleted status is rechecked for HTTP and STOMP. Match services derive player identity at controllers/service boundaries, check participant membership, enforce expected versions/idempotency and publish player-specific views. Active opponent ranks and authoritative identifiers remain absent; terminal disclosure is participant-only. Chat is bounded, paginated and React-rendered as text. Rating changes have per-match/user uniqueness and transactional exactly-once tests. Flyway is authoritative and Hibernate mutation is disabled. Actuator production exposure is health-only with details hidden.

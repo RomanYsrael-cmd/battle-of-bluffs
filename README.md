@@ -8,6 +8,8 @@ The production frontend is built for `https://bluffs.romanlms.com` with public `
 
 Audio and video are optional LiveKit Cloud channels. They never carry game commands, chat, clocks, presence, results, or ratings and are disabled unless a participant explicitly enables them. See [media architecture and operations](docs/audio-video.md) and [privacy](docs/privacy.md).
 
+Production media was validated on 2026-07-21 with two isolated browsers against the real frontend and managed LiveKit project. Two-way microphone/camera tracks, local opponent controls, device selection, leave/rejoin, blocking, post-match access, and gameplay independence passed. The Spring backend authorizes short-lived room access only; it does not proxy media packets.
+
 ## Architecture
 
 - `backend/` — Java 17, Spring Boot 4.1, Spring Security sessions/CSRF, STOMP, JPA, Flyway and PostgreSQL
