@@ -5,6 +5,7 @@ import {
   isPlayerOneFormationPosition,
   isPlayerTwoFormationPosition,
   visualPositionsFor,
+  visualRowsFor,
 } from './coordinates'
 import { isValidFormation, placeOrSwap, type Placements } from './formation'
 
@@ -40,6 +41,12 @@ describe('formation rules', () => {
     expect(playerTwo[0]).toEqual({ row: 0, column: 0 })
     expect(playerTwo.at(-1)).toEqual({ row: 7, column: 8 })
     expect(new Set(playerTwo.map(({ row, column }) => `${row}:${column}`)).size).toBe(72)
+  })
+
+  it('builds an explicit stable visual row order for each side', () => {
+    expect(visualRowsFor('PLAYER_ONE')).toEqual([7, 6, 5, 4, 3, 2, 1, 0])
+    expect(visualRowsFor('PLAYER_TWO')).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+    expect(visualRowsFor('PLAYER_ONE')).toEqual(visualRowsFor('PLAYER_ONE'))
   })
 
   it('recognizes a complete formation with exactly six empty deployment cells', () => {

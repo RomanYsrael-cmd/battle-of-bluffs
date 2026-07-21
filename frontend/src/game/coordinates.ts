@@ -31,11 +31,14 @@ export const canonicalPositions = (): Position[] =>
     Array.from({ length: BOARD_COLUMNS }, (_, column) => ({ row, column })),
   ).flat()
 
+export const visualRowsFor = (side: BoardSide): number[] =>
+  side === 'PLAYER_ONE'
+    ? Array.from({ length: BOARD_ROWS }, (_, index) => BOARD_ROWS - 1 - index)
+    : Array.from({ length: BOARD_ROWS }, (_, row) => row)
+
 export const visualPositionsFor = (side: BoardSide): Position[] =>
-  [...canonicalPositions()].sort((a, b) =>
-    side === 'PLAYER_ONE'
-      ? b.row - a.row || a.column - b.column
-      : a.row - b.row || a.column - b.column,
+  visualRowsFor(side).flatMap((row) =>
+    Array.from({ length: BOARD_COLUMNS }, (_, column) => ({ row, column })),
   )
 
 export const orthogonalDestinations = (source: Position): Position[] => [
