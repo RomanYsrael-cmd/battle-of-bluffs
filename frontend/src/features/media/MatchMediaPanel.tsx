@@ -89,7 +89,17 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
           {collapsed ? 'Open media' : 'Collapse'}
         </button>
       </div>
-      {collapsed && <p className={`media-compact-status media-status--${status.toLowerCase()}`}>{mediaStatusLabel(status)} · mic off · camera off</p>}
+      {collapsed && (
+        <div className="media-collapsed-preview">
+          <div className="media-camera-off" aria-hidden="true">
+            <span>▱</span>
+            <small>Camera is off</small>
+          </div>
+          <p className={`media-compact-status media-status--${status.toLowerCase()}`}>
+            <span>♩ Mic: off</span><span>▣ Camera: off</span><span>{mediaStatusLabel(status)}</span>
+          </p>
+        </div>
+      )}
       {!collapsed && (
         <>
           <p className="media-consent">

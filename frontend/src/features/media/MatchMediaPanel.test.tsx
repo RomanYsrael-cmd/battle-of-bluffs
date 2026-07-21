@@ -79,6 +79,7 @@ describe('optional match media', () => {
     render(<MatchMediaPanel {...participant} matchId="match-1" blocked={false} />)
 
     expect(mocks.requestMediaToken).not.toHaveBeenCalled()
+    expect(screen.getByText('Camera is off')).toBeInTheDocument()
     expect(screen.queryByText('Enable audio/video')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Open media' }))
     expect(screen.getByText(/Microphone and camera start off/)).toBeInTheDocument()

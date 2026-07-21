@@ -120,7 +120,7 @@ test.describe.serial('complete local platform', () => {
       await expect(currentGame.getByRole('button', { name: 'Cancel room' })).toHaveCount(0)
       await expect(firstPage.getByText('You already have a game in progress.')).toBeVisible()
       await currentGame.getByRole('button', { name: 'Resume game' }).click()
-      await expect(firstPage.getByRole('heading', { name: /Your turn|Opponent’s turn/ })).toBeVisible()
+      await expect(firstPage.locator('.match-status-turn')).toHaveText(/You to move|Opponent to move/)
       await exchangeChat(firstPage, secondPage, `Ready ${runId}`)
       await makeOneLegalMove(firstPage, secondPage)
       await resignAndExpectDisclosure(secondPage, firstPage)
@@ -256,7 +256,7 @@ test.describe.serial('complete local platform', () => {
       await expect(firstPage.getByRole('button', { name: 'Turn camera on' })).toBeVisible()
 
       await prepareBothArmies(firstPage, secondPage)
-      await expect(firstPage.getByRole('heading', { name: /Your turn|Opponent’s turn/ })).toBeVisible()
+      await expect(firstPage.locator('.match-status-turn')).toHaveText(/You to move|Opponent to move/)
       await firstPage.getByRole('button', { name: 'Open chat' }).click()
       await firstPage.getByRole('button', { name: 'Block' }).click()
       await expect(firstPage.getByText('Media off')).toBeVisible()
@@ -368,8 +368,8 @@ async function prepareBothArmies(firstPage: Page, secondPage: Page) {
   await Promise.all([deployFormation(firstPage), deployFormation(secondPage)])
   await submitAndLockFormation(firstPage)
   await submitAndLockFormation(secondPage)
-  await expect(firstPage.getByRole('heading', { name: /Your turn|Opponent’s turn/ })).toBeVisible()
-  await expect(secondPage.getByRole('heading', { name: /Your turn|Opponent’s turn/ })).toBeVisible()
+  await expect(firstPage.locator('.match-status-turn')).toHaveText(/You to move|Opponent to move/)
+  await expect(secondPage.locator('.match-status-turn')).toHaveText(/You to move|Opponent to move/)
 }
 
 interface FormationSafeState {
@@ -553,8 +553,8 @@ async function makeOneLegalMove(firstPage: Page, secondPage: Page) {
   ])
   await expect.poll(async () => {
     const [firstMoves, secondMoves, firstVersion, secondVersion] = await Promise.all([
-      firstPage.getByRole('heading', { name: 'Your turn' }).isVisible(),
-      secondPage.getByRole('heading', { name: 'Your turn' }).isVisible(),
+      firstPage.locator('.match-status-turn').filter({ hasText: 'You to move' }).isVisible(),
+      secondPage.locator('.match-status-turn').filter({ hasText: 'You to move' }).isVisible(),
       displayedMatchVersion(firstPage),
       displayedMatchVersion(secondPage),
     ])
@@ -567,7 +567,7 @@ async function makeOneLegalMove(firstPage: Page, secondPage: Page) {
     versionsConverged: true,
   })
 
-  const firstMoves = await firstPage.getByRole('heading', { name: 'Your turn' }).isVisible()
+  const firstMoves = await firstPage.locator('.match-status-turn').filter({ hasText: 'You to move' }).isVisible()
   const mover = firstMoves ? firstPage : secondPage
   const observer = firstMoves ? secondPage : firstPage
   const sideLabel = mover.locator('.match-status-bar').getByText(/^Side [12]$/)
@@ -617,8 +617,8 @@ async function makeOneLegalMove(firstPage: Page, secondPage: Page) {
     displayedMatchVersion(observer),
   ]), { message: `both players must converge on accepted version ${acceptedVersion}` })
     .toEqual([acceptedVersion, acceptedVersion])
-  await expect(mover.getByRole('heading', { name: 'Opponent’s turn' })).toBeVisible()
-  await expect(observer.getByRole('heading', { name: 'Your turn' })).toBeVisible()
+  await expect(mover.locator('.match-status-turn')).toContainText('Opponent to move')
+  await expect(observer.locator('.match-status-turn')).toContainText('You to move')
 }
 
 async function displayedMatchVersion(page: Page): Promise<number> {
