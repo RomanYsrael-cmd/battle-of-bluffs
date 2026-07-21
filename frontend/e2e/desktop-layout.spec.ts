@@ -145,6 +145,38 @@ test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ p
   await page.setViewportSize({ width: 1366, height: 768 })
   await openMockMatch(page, 'FORMATION')
   await expect(page.locator('.tray-grid .piece')).toHaveCount(21)
+  const boardBefore = await page.locator('.board').boundingBox()
+  const trayPanel = page.locator('.floating-formation-tray')
+  expect(await trayPanel.evaluate((node) => ({
+    position: getComputedStyle(node).position,
+    resize: getComputedStyle(node).resize,
+  }))).toEqual({ position: 'fixed', resize: 'both' })
+
+  const fiveStar = page.getByRole('button', { name: 'Five-Star General' })
+  const firstCell = page.getByRole('gridcell', { name: /row 0, column 0, formation cell/i })
+  await fiveStar.dragTo(firstCell)
+  await expect(page.locator('.tray-grid .piece')).toHaveCount(20)
+  await expect(firstCell.getByRole('button', { name: 'Five-Star General' })).toBeVisible()
+  await firstCell.getByRole('button', { name: 'Five-Star General' }).dragTo(trayPanel)
+  await expect(page.locator('.tray-grid .piece')).toHaveCount(21)
+
+  const trayBeforeDrag = await trayPanel.boundingBox()
+  const trayHeading = await trayPanel.locator('.formation-tray__heading').boundingBox()
+  await page.mouse.move(trayHeading!.x + 70, trayHeading!.y + 20)
+  await page.mouse.down()
+  await page.mouse.move(trayHeading!.x + 150, trayHeading!.y + 65, { steps: 5 })
+  await page.mouse.up()
+  const trayAfterDrag = await trayPanel.boundingBox()
+  expect(trayAfterDrag!.x).toBeGreaterThan(trayBeforeDrag!.x + 50)
+  expect(trayAfterDrag!.y).toBeGreaterThan(trayBeforeDrag!.y + 25)
+
+  await page.mouse.move(trayAfterDrag!.x + trayAfterDrag!.width - 2, trayAfterDrag!.y + trayAfterDrag!.height - 2)
+  await page.mouse.down()
+  await page.mouse.move(trayAfterDrag!.x + trayAfterDrag!.width + 40, trayAfterDrag!.y + trayAfterDrag!.height + 25, { steps: 5 })
+  await page.mouse.up()
+  const trayAfterResize = await trayPanel.boundingBox()
+  expect(trayAfterResize!.width).toBeGreaterThan(trayAfterDrag!.width + 20)
+  expect(trayAfterResize!.height).toBeGreaterThan(trayAfterDrag!.height + 10)
   for (const name of ['Submit formation', 'Lock formation', 'Reset formation', 'Open chat', 'Set up media']) {
     await expect(page.getByRole('button', { name })).toBeInViewport()
   }
@@ -154,6 +186,7 @@ test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ p
   const chat = await page.locator('.chat-panel').boundingBox()
   expect(actions!.x + actions!.width).toBeLessThanOrEqual(board!.x + 1)
   expect(board!.x + board!.width).toBeLessThanOrEqual(chat!.x + 1)
+  expect(board).toEqual(boardBefore)
   expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
 })
 

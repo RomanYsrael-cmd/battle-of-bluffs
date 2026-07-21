@@ -44,6 +44,34 @@ describe('server-aware formation setup', () => {
     expect(document.querySelectorAll('.tray-grid .piece')).toHaveLength(21)
   })
 
+  it('supports drag-and-drop between the tray and canonical formation cells', () => {
+    renderFormation(matchView({ playerTwoOccupied: true }))
+    const dataTransfer = {
+      effectAllowed: 'none',
+      dropEffect: 'none',
+      setData: vi.fn(),
+    }
+    const firstCell = screen.getByRole('gridcell', { name: /row 0, column 0, formation cell/i })
+    const secondCell = screen.getByRole('gridcell', { name: /row 0, column 1, formation cell/i })
+    const tray = document.querySelector('.floating-formation-tray')!
+
+    fireEvent.dragStart(screen.getByRole('button', { name: 'Five-Star General' }), { dataTransfer })
+    fireEvent.dragOver(firstCell, { dataTransfer })
+    fireEvent.drop(firstCell, { dataTransfer })
+    expect(firstCell).toHaveTextContent('5-STAR')
+    expect(document.querySelectorAll('.tray-grid .piece')).toHaveLength(20)
+
+    fireEvent.dragStart(screen.getByRole('button', { name: 'Five-Star General' }), { dataTransfer })
+    fireEvent.drop(secondCell, { dataTransfer })
+    expect(secondCell).toHaveTextContent('5-STAR')
+    expect(firstCell).not.toHaveTextContent('5-STAR')
+
+    fireEvent.dragStart(screen.getByRole('button', { name: 'Five-Star General' }), { dataTransfer })
+    fireEvent.dragOver(tray, { dataTransfer })
+    fireEvent.drop(tray, { dataTransfer })
+    expect(document.querySelectorAll('.tray-grid .piece')).toHaveLength(21)
+  })
+
   it('submits Player 2 canonical coordinates after visually rotating the board', async () => {
     const view = matchView({
       version: 3,

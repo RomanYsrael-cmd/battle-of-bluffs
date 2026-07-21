@@ -32,11 +32,23 @@ export function useFormation(side: BoardSide, locked: boolean, initialPieces: In
     setSelectedPieceId(null)
   }
 
+  const placePiece = (pieceId: string, position: Position) => {
+    if (locked || !inventory.some((piece) => piece.id === pieceId)
+      || !isFormationPosition(position, side)) return
+    const selectedIsPlaced = Boolean(placements[pieceId])
+    if (!selectedIsPlaced && pieceAt(placements, position)) return
+    setPlacements((current) => placeOrSwap(current, pieceId, position, side))
+    setSelectedPieceId(null)
+  }
+
+  const returnPieceToTray = (pieceId: string) => {
+    if (locked || !placements[pieceId]) return
+    setPlacements((current) => removePlacement(current, pieceId))
+    setSelectedPieceId(null)
+  }
+
   const returnSelectedToTray = () => {
-    if (!locked && selectedPieceId && placements[selectedPieceId]) {
-      setPlacements((current) => removePlacement(current, selectedPieceId))
-      setSelectedPieceId(null)
-    }
+    if (selectedPieceId) returnPieceToTray(selectedPieceId)
   }
 
   const reset = () => {
@@ -53,6 +65,8 @@ export function useFormation(side: BoardSide, locked: boolean, initialPieces: In
     placedCount: Object.keys(placements).length,
     selectPiece,
     selectCell,
+    placePiece,
+    returnPieceToTray,
     returnSelectedToTray,
     reset,
   }
