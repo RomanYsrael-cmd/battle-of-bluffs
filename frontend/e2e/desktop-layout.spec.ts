@@ -146,6 +146,13 @@ test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ p
   await openMockMatch(page, 'FORMATION')
   await expect(page.locator('.tray-grid .piece')).toHaveCount(21)
   const boardBefore = await page.locator('.board').boundingBox()
+  const rowOrderBefore = await page.locator('.board-rank-labels span').allTextContents()
+  const cellOrderBefore = await page.locator('.board-cell').evaluateAll((cells) => [
+    cells[0]?.getAttribute('data-position'),
+    cells.at(-1)?.getAttribute('data-position'),
+  ])
+  expect(rowOrderBefore).toEqual(['7', '6', '5', '4', '3', '2', '1', '0'])
+  await expect(page.locator('.board')).toHaveAttribute('data-board-side', 'PLAYER_ONE')
   const trayPanel = page.locator('.floating-formation-tray')
   expect(await trayPanel.evaluate((node) => ({
     position: getComputedStyle(node).position,
@@ -157,6 +164,11 @@ test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ p
   await fiveStar.dragTo(firstCell)
   await expect(page.locator('.tray-grid .piece')).toHaveCount(20)
   await expect(firstCell.getByRole('button', { name: 'Five-Star General' })).toBeVisible()
+  expect(await page.locator('.board-rank-labels span').allTextContents()).toEqual(rowOrderBefore)
+  expect(await page.locator('.board-cell').evaluateAll((cells) => [
+    cells[0]?.getAttribute('data-position'),
+    cells.at(-1)?.getAttribute('data-position'),
+  ])).toEqual(cellOrderBefore)
   await firstCell.getByRole('button', { name: 'Five-Star General' }).dragTo(trayPanel)
   await expect(page.locator('.tray-grid .piece')).toHaveCount(21)
 

@@ -4,6 +4,7 @@ import {
   coordinateKey,
   isFormationPosition,
   visualPositionsFor,
+  visualRowsFor,
   type BoardSide,
   type Position,
 } from '../../game/coordinates'
@@ -40,7 +41,7 @@ export function Board({
   const actionablePieceId = draggedPieceId ?? selectedPieceId
   const selectedIsPlaced = actionablePieceId ? Boolean(placements[actionablePieceId]) : false
   const visualPositions = visualPositionsFor(side)
-  const visualRows = visualPositions.filter((position) => position.column === 0).map((position) => position.row)
+  const visualRows = visualRowsFor(side)
 
   return (
     <div className="board-wrap">
@@ -51,7 +52,12 @@ export function Board({
         <div className="board-rank-labels" aria-hidden="true">
           {visualRows.map((row) => <span key={row}>{row}</span>)}
         </div>
-        <div className="board" role="grid" aria-label="Canonical 8 by 9 formation board">
+        <div
+          className="board"
+          role="grid"
+          aria-label="Canonical 8 by 9 formation board"
+          data-board-side={side}
+        >
           {visualPositions.map((position) => {
           const occupantId = pieceAt(placements, position)
           const occupant = inventory.find((piece) => piece.id === occupantId)

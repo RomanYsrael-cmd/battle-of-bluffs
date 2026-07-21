@@ -239,6 +239,7 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
     >
       {query.data.phase === 'FORMATION' ? (
         <FormationScreen
+          key={`${query.data.matchId}:${query.data.requestingPlayerId}:${query.data.requestingSide}`}
           view={query.data}
           session={session}
           onView={acceptResponse}
