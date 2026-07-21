@@ -24,6 +24,7 @@ interface MatchMediaPanelProps {
 }
 
 type MediaStatus = 'OFF' | 'CONNECTING' | 'CONNECTED' | 'RECONNECTING' | 'ERROR'
+type RequestedSource = 'microphone' | 'camera'
 
 export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked }: MatchMediaPanelProps) {
   const consentKey = mediaSessionKey(accountId, matchId, participantCycle)
@@ -36,6 +37,7 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
   const [token, setToken] = useState<string>()
   const [status, setStatus] = useState<MediaStatus>('OFF')
   const [error, setError] = useState('')
+  const [requestedSource, setRequestedSource] = useState<RequestedSource>()
   const floating = useFloatingCameraPanel(`gotg:media-position:${accountId}:${matchId}`)
 
   const leave = () => {
@@ -49,7 +51,8 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
     if (blocked) leave()
   }, [blocked])
 
-  const enable = async () => {
+  const enable = async (source?: RequestedSource) => {
+    setRequestedSource(source)
     setStatus('CONNECTING')
     setError('')
     try {
@@ -62,6 +65,7 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
       setToken(response.token)
       sessionStorage.setItem(consentKey, 'true')
     } catch (cause) {
+      setRequestedSource(undefined)
       setStatus('ERROR')
       setError(cause instanceof Error && cause.message === 'Media is not configured for this site.'
         ? cause.message
@@ -75,6 +79,16 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const togglePanel = () => setCollapsed((value) => {
+    localStorage.setItem(panelKey, value ? 'open' : 'closed')
+    return !value
+  })
+
+  const openSettings = () => {
+    localStorage.setItem(panelKey, 'open')
+    setCollapsed(false)
+  }
+
   return (
     <section ref={floating.panelRef} style={floating.style}
       className={`media-panel floating-camera-panel${collapsed ? ' media-panel--collapsed' : ''}${floating.dragging ? ' floating-camera-panel--dragging' : ''}`}
@@ -86,25 +100,27 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
         </div>
         <span className="media-drag-handle" aria-hidden="true">⠿</span>
         <button type="button" className="button button--ghost" aria-expanded={!collapsed}
-          onClick={() => setCollapsed((value) => {
-            localStorage.setItem(panelKey, value ? 'open' : 'closed')
-            return !value
-          })}>
-          {collapsed ? 'Open media' : 'Collapse'}
+          onClick={togglePanel}>
+          {collapsed ? token ? 'Settings' : 'Set up media' : token ? 'Close settings' : 'Collapse'}
         </button>
       </div>
-      {collapsed && (
+      {!token && collapsed && (
         <div className="media-collapsed-preview">
           <div className="media-camera-off" aria-hidden="true">
             <span>▱</span>
             <small>Camera is off</small>
           </div>
-          <p className={`media-compact-status media-status--${status.toLowerCase()}`}>
-            <span>♩ Mic: off</span><span>▣ Camera: off</span><span>{mediaStatusLabel(status)}</span>
-          </p>
+          <div className={`media-compact-status media-status--${status.toLowerCase()}`}>
+            <button type="button" aria-label="Turn microphone on" disabled={blocked || status === 'CONNECTING'}
+              onClick={() => void enable('microphone')}>♩ Mic: off</button>
+            <button type="button" aria-label="Turn camera on" disabled={blocked || status === 'CONNECTING'}
+              onClick={() => void enable('camera')}>▣ Camera: off</button>
+            <button type="button" className="media-settings-button" aria-label={`Open media settings · ${mediaStatusLabel(status)}`}
+              onClick={openSettings}>⚙</button>
+          </div>
         </div>
       )}
-      {!collapsed && (
+      {!token && !collapsed && (
         <>
           <p className="media-consent">
             Microphone and camera start off. Enabling media connects only the two match participants;
@@ -115,39 +131,7 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
               disabled={blocked || status === 'CONNECTING'} onClick={() => void enable()}>
               {status === 'CONNECTING' ? 'Connecting…' : 'Enable audio/video'}
             </button>
-          ) : (
-            <LiveKitRoom
-              serverUrl={mediaServerUrl}
-              token={token}
-              connect
-              audio={false}
-              video={false}
-              screen={false}
-              options={{ adaptiveStream: true, dynacast: true, videoCaptureDefaults: { resolution: VideoPresets.h360.resolution } }}
-              connectOptions={{ autoSubscribe: true }}
-              onConnected={() => setStatus('CONNECTED')}
-              onDisconnected={() => {
-                setToken(undefined)
-                setStatus('ERROR')
-                setError('Media disconnected. Your match is still active.')
-              }}
-              onError={() => {
-                setToken(undefined)
-                setStatus('ERROR')
-                setError('Media could not connect. Your match is still active.')
-              }}
-              onMediaDeviceFailure={(_failure, kind) => {
-                setStatus('ERROR')
-                setError(kind === 'audioinput'
-                  ? 'Microphone access was blocked or the device is unavailable. Check this site’s browser permission.'
-                  : kind === 'videoinput'
-                    ? 'Camera access was blocked or the device is unavailable. Check this site’s browser permission.'
-                    : 'The selected media device is unavailable. Choose another device or check browser permission.')
-              }}
-            >
-              <ConnectedMedia status={status} setStatus={setStatus} onLeave={leave} />
-            </LiveKitRoom>
-          )}
+          ) : null}
           <p className={`media-status media-status--${status.toLowerCase()}`} role="status">
             {mediaStatusLabel(status)}
           </p>
@@ -159,6 +143,54 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
           )}
           {blocked && <p className="media-error" role="status">Media is unavailable while this opponent is blocked.</p>}
         </>
+      )}
+      {token && (
+        <LiveKitRoom
+          serverUrl={mediaServerUrl}
+          token={token}
+          connect
+          audio={false}
+          video={false}
+          screen={false}
+          options={{ adaptiveStream: true, dynacast: true, videoCaptureDefaults: { resolution: VideoPresets.h360.resolution } }}
+          connectOptions={{ autoSubscribe: true }}
+          onConnected={() => setStatus('CONNECTED')}
+          onDisconnected={() => {
+            setToken(undefined)
+            setRequestedSource(undefined)
+            setStatus('ERROR')
+            setError('Media disconnected. Your match is still active.')
+          }}
+          onError={() => {
+            setToken(undefined)
+            setRequestedSource(undefined)
+            setStatus('ERROR')
+            setError('Media could not connect. Your match is still active.')
+          }}
+          onMediaDeviceFailure={(_failure, kind) => {
+            setStatus('ERROR')
+            setError(kind === 'audioinput'
+              ? 'Microphone access was blocked or the device is unavailable. Check this site’s browser permission.'
+              : kind === 'videoinput'
+                ? 'Camera access was blocked or the device is unavailable. Check this site’s browser permission.'
+                : 'The selected media device is unavailable. Choose another device or check browser permission.')
+          }}
+        >
+          <ConnectedMedia
+            status={status}
+            setStatus={setStatus}
+            onLeave={leave}
+            settingsOpen={!collapsed}
+            onToggleSettings={togglePanel}
+            requestedSource={requestedSource}
+            onRequestedSourceHandled={() => setRequestedSource(undefined)}
+          />
+        </LiveKitRoom>
+      )}
+      {token && status === 'ERROR' && error && (
+        <div className="media-error media-device-error" role="alert">
+          <p>{error}</p>
+        </div>
       )}
     </section>
   )
@@ -255,10 +287,14 @@ function useFloatingCameraPanel(storageKey: string): {
   }
 }
 
-function ConnectedMedia({ status, setStatus, onLeave }: {
+function ConnectedMedia({ status, setStatus, onLeave, settingsOpen, onToggleSettings, requestedSource, onRequestedSourceHandled }: {
   status: MediaStatus
   setStatus: (status: MediaStatus) => void
   onLeave: () => void
+  settingsOpen: boolean
+  onToggleSettings: () => void
+  requestedSource?: RequestedSource
+  onRequestedSourceHandled: () => void
 }) {
   const room = useRoomContext()
   const remoteParticipants = useRemoteParticipants()
@@ -277,6 +313,12 @@ function ConnectedMedia({ status, setStatus, onLeave }: {
   const remoteAudio = audioTracks.find((ref) => !ref.participant.isLocal)
   const remoteCameraOff = !remoteVideo || remoteVideo.publication?.isMuted
   const remoteMicrophoneOff = !remoteAudio || remoteAudio.publication?.isMuted
+
+  useEffect(() => {
+    if (status !== 'CONNECTED' || !requestedSource) return
+    onRequestedSourceHandled()
+    void (requestedSource === 'microphone' ? microphone.toggle(true) : camera.toggle(true))
+  }, [camera, microphone, onRequestedSourceHandled, requestedSource, status])
 
   useEffect(() => {
     const handleState = (state: ConnectionState) => {
@@ -303,20 +345,6 @@ function ConnectedMedia({ status, setStatus, onLeave }: {
   return (
     <div className="media-room">
       <StartAudio className="button button--secondary" label="Tap to enable opponent audio" />
-      {remoteParticipants[0] ? (
-        <ConnectedOpponentStatus
-          participant={remoteParticipants[0]}
-          microphoneOff={remoteMicrophoneOff}
-          muted={remoteMuted}
-          hidden={remoteHidden}
-        />
-      ) : (
-        <p className="media-participant-status" aria-live="polite">
-          Opponent not connected to media
-          {remoteMuted ? ' · muted for you' : ''}
-          {remoteHidden ? ' · hidden for you' : ''}
-        </p>
-      )}
       <div className="media-videos">
         <figure>
           <div className="media-video-frame">
@@ -332,28 +360,54 @@ function ConnectedMedia({ status, setStatus, onLeave }: {
         </figure>
       </div>
       {remoteAudio && <AudioTrack trackRef={remoteAudio} volume={remoteMuted ? 0 : volume} />}
-      <div className="media-controls">
-        <button type="button" {...microphone.buttonProps}><span aria-hidden="true">🎙</span> {microphone.pending ? 'Updating microphone…' : microphone.enabled ? 'Mute mic' : 'Unmute mic'}</button>
-        <button type="button" {...camera.buttonProps}><span aria-hidden="true">📷</span> {camera.pending ? 'Updating camera…' : camera.enabled ? 'Turn camera off' : 'Turn camera on'}</button>
-        <button type="button" aria-pressed={remoteMuted} onClick={() => setRemoteMuted((value) => !value)}><span aria-hidden="true">🔇</span> {remoteMuted ? 'Unmute opponent' : 'Mute opponent'}</button>
-        <button type="button" aria-pressed={remoteHidden} onClick={() => setRemoteHidden((value) => !value)}><span aria-hidden="true">◉</span> {remoteHidden ? 'Show opponent video' : 'Hide opponent video'}</button>
-        <button type="button" className="button button--danger" onClick={onLeave}><span aria-hidden="true">×</span> Leave media</button>
+      <div className={`media-compact-status media-status--${status.toLowerCase()}`}>
+        <button type="button" {...microphone.buttonProps} aria-label={microphone.enabled ? 'Mute microphone' : 'Unmute microphone'}>
+          ♩ Mic: {microphone.pending ? '…' : microphone.enabled ? 'on' : 'off'}
+        </button>
+        <button type="button" {...camera.buttonProps} aria-label={camera.enabled ? 'Turn camera off' : 'Turn camera on'}>
+          ▣ Camera: {camera.pending ? '…' : camera.enabled ? 'on' : 'off'}
+        </button>
+        <button type="button" className="media-settings-button" aria-label={`${settingsOpen ? 'Close' : 'Open'} media settings · ${mediaStatusLabel(status)}`}
+          aria-expanded={settingsOpen} onClick={onToggleSettings}>⚙</button>
       </div>
-      <label className="media-volume">Opponent volume
-        <input type="range" min="0" max="1" step="0.05" value={volume}
-          onChange={(event) => setVolume(Number(event.target.value))} />
-      </label>
-      <div className="media-devices">
-        {deviceControls.map(({ label, selector }) => (
-          <label key={label}>{label}
-            <select value={selector.activeDeviceId}
-              onChange={(event) => void selector.setActiveMediaDevice(event.target.value)}>
-              {selector.devices.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label || `${label} device`}</option>)}
-            </select>
+      {settingsOpen && (
+        <div className="media-settings" aria-label="Media settings">
+          <div className="media-settings__heading">
+            <strong>Media settings</strong>
+            <small>{mediaStatusLabel(status)}</small>
+          </div>
+          {remoteParticipants[0] ? (
+            <ConnectedOpponentStatus
+              participant={remoteParticipants[0]}
+              microphoneOff={remoteMicrophoneOff}
+              muted={remoteMuted}
+              hidden={remoteHidden}
+            />
+          ) : (
+            <p className="media-participant-status" aria-live="polite">Opponent not connected to media</p>
+          )}
+          <div className="media-opponent-controls">
+            <button type="button" aria-pressed={remoteMuted} onClick={() => setRemoteMuted((value) => !value)}>{remoteMuted ? 'Unmute opponent' : 'Mute opponent'}</button>
+            <button type="button" aria-pressed={remoteHidden} onClick={() => setRemoteHidden((value) => !value)}>{remoteHidden ? 'Show opponent video' : 'Hide opponent video'}</button>
+          </div>
+          <label className="media-volume">Opponent volume
+            <input type="range" min="0" max="1" step="0.05" value={volume}
+              onChange={(event) => setVolume(Number(event.target.value))} />
           </label>
-        ))}
-      </div>
-      {status === 'RECONNECTING' && <p>Media reconnecting. Gameplay remains connected separately.</p>}
+          <div className="media-devices">
+            {deviceControls.map(({ label, selector }) => (
+              <label key={label}>{label}
+                <select value={selector.activeDeviceId}
+                  onChange={(event) => void selector.setActiveMediaDevice(event.target.value)}>
+                  {selector.devices.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label || `${label} device`}</option>)}
+                </select>
+              </label>
+            ))}
+          </div>
+          {status === 'RECONNECTING' && <p>Media reconnecting. Gameplay remains connected separately.</p>}
+          <button type="button" className="button button--danger media-leave" onClick={onLeave}>Leave media</button>
+        </div>
+      )}
     </div>
   )
 }

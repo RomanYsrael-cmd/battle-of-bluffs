@@ -42,6 +42,7 @@ vi.mock('@livekit/components-react', () => ({
   useTrackToggle: ({ source }: { source: string }) => ({
     enabled: false,
     pending: false,
+    toggle: source === 'microphone' ? mocks.microphoneToggle : mocks.cameraToggle,
     buttonProps: { onClick: source === 'microphone' ? mocks.microphoneToggle : mocks.cameraToggle },
   }),
   useMediaDeviceSelect: () => ({
@@ -81,7 +82,7 @@ describe('optional match media', () => {
     expect(mocks.requestMediaToken).not.toHaveBeenCalled()
     expect(screen.getByText('Camera is off')).toBeInTheDocument()
     expect(screen.queryByText('Enable audio/video')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Open media' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Set up media' }))
     expect(screen.getByText(/Microphone and camera start off/)).toBeInTheDocument()
     expect(mocks.requestMediaToken).not.toHaveBeenCalled()
 
@@ -102,7 +103,7 @@ describe('optional match media', () => {
   it('keeps gameplay independent on errors and disables consent when blocked', async () => {
     mocks.requestMediaToken.mockRejectedValue(new Error('Cloud connection unavailable'))
     const { rerender } = render(<><button type="button">Make legal move</button><MatchMediaPanel {...participant} matchId="match-2" blocked={false} /></>)
-    fireEvent.click(screen.getByRole('button', { name: 'Open media' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Set up media' }))
     fireEvent.click(screen.getByRole('button', { name: 'Enable audio/video' }))
     expect(await screen.findByText('Media unavailable — gameplay is unaffected')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Retry media' })).toBeInTheDocument()
@@ -120,15 +121,18 @@ describe('optional match media', () => {
       expiresAt: '2026-07-20T12:05:00Z', room: { matchId: 'match-3', participantCountLimit: 2 },
     })
     render(<MatchMediaPanel {...participant} matchId="match-3" blocked={false} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Open media' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Set up media' }))
     fireEvent.click(screen.getByRole('button', { name: 'Enable audio/video' }))
     await screen.findByTestId('livekit-room')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Unmute mic' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Unmute microphone' }))
     fireEvent.click(screen.getByRole('button', { name: 'Turn camera on' }))
     expect(mocks.microphoneToggle).toHaveBeenCalledOnce()
     expect(mocks.cameraToggle).toHaveBeenCalledOnce()
     expect(screen.getByRole('button', { name: 'Tap to enable opponent audio' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Microphone')).toBeInTheDocument()
+    expect(screen.getByLabelText('Camera')).toBeInTheDocument()
+    expect(screen.getByLabelText('Speaker')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Mute opponent' }))
     expect(screen.getByText(/muted for you/)).toBeInTheDocument()
@@ -157,7 +161,7 @@ describe('optional match media', () => {
       expiresAt: '2026-07-20T12:05:00Z', room: { matchId: 'match-5', participantCountLimit: 2 },
     })
     render(<MatchMediaPanel {...participant} matchId="match-5" blocked={false} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Open media' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Set up media' }))
     fireEvent.click(screen.getByRole('button', { name: 'Enable audio/video' }))
     await screen.findByTestId('livekit-room')
 
@@ -177,5 +181,29 @@ describe('optional match media', () => {
     await waitFor(() => expect(mocks.requestMediaToken).toHaveBeenCalledWith('match-4'))
     await screen.findByTestId('livekit-room')
     expect(mocks.liveKitProps).toMatchObject({ audio: false, video: false })
+  })
+
+  it('makes compact mic and camera controls explicit consent actions and keeps the room mounted when settings close', async () => {
+    mocks.requestMediaToken.mockResolvedValue({
+      enabled: true, url: 'wss://example.livekit.cloud', token: 'token',
+      expiresAt: '2026-07-20T12:05:00Z', room: { matchId: 'match-6', participantCountLimit: 2 },
+    })
+    render(<MatchMediaPanel {...participant} matchId="match-6" blocked={false} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Turn microphone on' }))
+    await waitFor(() => expect(mocks.requestMediaToken).toHaveBeenCalledWith('match-6'))
+    expect(await screen.findByTestId('livekit-room')).toBeInTheDocument()
+
+    act(() => {
+      (mocks.liveKitProps?.onConnected as () => void)()
+    })
+    await waitFor(() => expect(mocks.microphoneToggle).toHaveBeenCalledWith(true))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    expect(screen.getByLabelText('Media settings')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Close settings' }))
+    expect(screen.queryByLabelText('Media settings')).not.toBeInTheDocument()
+    expect(screen.getByTestId('livekit-room')).toBeInTheDocument()
+    expect(mocks.requestMediaToken).toHaveBeenCalledTimes(1)
   })
 })

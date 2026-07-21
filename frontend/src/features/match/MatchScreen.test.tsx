@@ -79,6 +79,11 @@ describe('active and terminal match screens', () => {
     expect(opponentPiece.querySelector('[data-symbol]')).not.toBeInTheDocument()
     expect(opponentPiece).not.toHaveAccessibleName(/flag|spy|general|colonel|major|captain|lieutenant|sergeant|private/i)
     expect(screen.queryByText('Spy')).not.toBeInTheDocument()
+    expect(document.querySelectorAll('.board-cell__coordinate')).toHaveLength(0)
+    expect(Array.from(document.querySelectorAll('.board-rank-labels span'), (label) => label.textContent))
+      .toEqual(['7', '6', '5', '4', '3', '2', '1', '0'])
+    expect(Array.from(document.querySelectorAll('.board-file-labels span'), (label) => label.textContent))
+      .toEqual(['0', '1', '2', '3', '4', '5', '6', '7', '8'])
   })
 
   it('submits a selected move without resolving the board optimistically', async () => {

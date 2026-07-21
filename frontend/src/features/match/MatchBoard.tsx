@@ -23,6 +23,8 @@ export function MatchBoard({
   onSelectPiece,
   onDestination,
 }: MatchBoardProps) {
+  const visualPositions = visualPositionsFor(view.requestingSide)
+  const visualRows = visualPositions.filter((position) => position.column === 0).map((position) => position.row)
   const selected = view.ownPieces.find((piece) => piece.id === selectedPieceId && piece.position)
   const ownPositions = new Set(view.ownPieces
     .flatMap((piece) => piece.position ? [coordinateKey(piece.position)] : []))
@@ -34,11 +36,15 @@ export function MatchBoard({
 
   return (
     <div className="board-wrap">
-      <div className="board-file-labels" aria-hidden="true">
-        {Array.from({ length: 9 }, (_, column) => <span key={column}>{column}</span>)}
-      </div>
-      <div className="board match-board" role="grid" aria-label="Active match board">
-        {visualPositionsFor(view.requestingSide).map((position) => {
+      <div className="board-coordinate-frame">
+        <div className="board-file-labels" aria-hidden="true">
+          {Array.from({ length: 9 }, (_, column) => <span key={column}>{column}</span>)}
+        </div>
+        <div className="board-rank-labels" aria-hidden="true">
+          {visualRows.map((row) => <span key={row}>{row}</span>)}
+        </div>
+        <div className="board match-board" role="grid" aria-label="Active match board">
+          {visualPositions.map((position) => {
           const key = coordinateKey(position)
           const ownPiece = view.ownPieces.find((piece) =>
             piece.position && coordinateKey(piece.position) === key)
@@ -62,7 +68,6 @@ export function MatchBoard({
                 else if (ownPiece) onSelectPiece(ownPiece.id)
               }}
             >
-              <span className="board-cell__coordinate">{position.row},{position.column}</span>
               {ownPiece && (
                 <span
                   className={`match-piece match-piece--own ${selectedPieceId === ownPiece.id ? 'match-piece--selected' : ''}`}
@@ -84,7 +89,8 @@ export function MatchBoard({
               )}
             </button>
           )
-        })}
+          })}
+        </div>
       </div>
       <p className="board-caption">Coordinates remain canonical; only the visual row order rotates.</p>
     </div>
