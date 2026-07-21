@@ -90,7 +90,7 @@ for (const viewport of [
   { width: 1440, height: 900 },
   { width: 1920, height: 1080 },
 ]) {
-  test(`active workspace fits ${viewport.width}x${viewport.height} without document scrolling`, async ({ page }) => {
+  test(`active workspace keeps a large width-based board at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport)
     await openMockMatch(page, 'ACTIVE')
     await expect(page.getByRole('button', { name: 'Open chat' })).toBeVisible()
@@ -103,16 +103,14 @@ for (const viewport of [
     await expect(page.locator('.board-rank-labels span').first()).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Your lost pieces' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Captured by you' })).toHaveCount(0)
-    expect(await page.evaluate(() => ({
-      html: document.documentElement.scrollHeight - document.documentElement.clientHeight,
-      body: document.body.scrollHeight - document.body.clientHeight,
-    }))).toEqual({ html: 0, body: 0 })
-    for (const selector of ['.match-board', '.play-clock', '.captures-rail', '.floating-camera-panel', '.chat-panel', '.actions']) {
+    for (const selector of ['.play-clock', '.floating-camera-panel', '.chat-panel', '.actions']) {
       await expectInsideViewport(page, selector)
     }
     const board = await page.locator('.match-board').boundingBox()
+    expect(board!.x).toBeGreaterThanOrEqual(0)
+    expect(board!.x + board!.width).toBeLessThanOrEqual(viewport.width + 1)
     expect(board!.width / board!.height).toBeCloseTo(9 / 8, 1)
-    expect(board!.width).toBeGreaterThanOrEqual(viewport.height * .8)
+    expect(board!.width).toBeGreaterThanOrEqual(Math.min(736, viewport.width * .55) - 1)
     const camera = await page.locator('.floating-camera-panel').boundingBox()
     const chat = await page.locator('.chat-panel').boundingBox()
     const actions = await page.locator('.actions').boundingBox()
@@ -126,19 +124,23 @@ for (const viewport of [
   })
 }
 
-test('terminal status and the complete board fit 1366x768', async ({ page }) => {
+test('terminal status stays visible while the complete board remains full size at 1366x768', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
   await openMockMatch(page, 'TERMINAL')
 
   await expect(page.getByText('Low time')).toHaveCount(0)
   await expectInsideViewport(page, '.match-status-bar')
-  await expectInsideViewport(page, '.match-board')
+  const board = await page.locator('.match-board').boundingBox()
+  expect(board!.x).toBeGreaterThanOrEqual(0)
+  expect(board!.x + board!.width).toBeLessThanOrEqual(1367)
+  expect(board!.width).toBeGreaterThanOrEqual(750)
   const status = await page.locator('.match-status-bar').boundingBox()
   expect(status!.height).toBeLessThanOrEqual(90)
   await expect(page.locator('.board-rank-labels span').first()).toBeVisible()
   await expect(page.getByRole('button', { name: 'Back to dashboard' })).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Resign match' })).toBeInViewport()
-  expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
+  expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight))
+    .toBeGreaterThan(0)
 })
 
 test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ page }) => {
@@ -219,6 +221,20 @@ test('formation board keeps its desktop size when browser chrome reduces viewpor
     .toBeGreaterThan(0)
 })
 
+test('active board keeps its desktop size when browser chrome reduces viewport height', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await openMockMatch(page, 'ACTIVE')
+  const fullHeightBoard = await page.locator('.match-board').boundingBox()
+
+  await page.setViewportSize({ width: 1366, height: 640 })
+  const shortHeightBoard = await page.locator('.match-board').boundingBox()
+
+  expect(shortHeightBoard!.width).toBeCloseTo(fullHeightBoard!.width, 0)
+  expect(shortHeightBoard!.height).toBeCloseTo(fullHeightBoard!.height, 0)
+  expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight))
+    .toBeGreaterThan(0)
+})
+
 test('stacked fallback activates immediately below the 1024px desktop breakpoint', async ({ page }) => {
   await page.setViewportSize({ width: 1023, height: 900 })
   await openMockMatch(page, 'ACTIVE')
@@ -275,8 +291,9 @@ test('floating resizable camera and messenger chat never resize the board', asyn
   await expect(page.getByRole('button', { name: 'Enable audio/video' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Message' })).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Send' })).toBeInViewport()
-  await expectInsideViewport(page, '.match-board')
   const boardAfter = await page.locator('.match-board').boundingBox()
+  expect(boardAfter!.x).toBeGreaterThanOrEqual(0)
+  expect(boardAfter!.x + boardAfter!.width).toBeLessThanOrEqual(1367)
   expect(boardAfter).toEqual(boardBefore)
   await page.getByRole('button', { name: 'Collapse' }).last().click()
   await expect(page.getByRole('button', { name: 'Type a message…' })).toBeVisible()
