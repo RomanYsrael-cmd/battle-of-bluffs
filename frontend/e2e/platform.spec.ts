@@ -147,9 +147,9 @@ test.describe.serial('complete local platform', () => {
         enterRankedQueue(firstPage),
         enterRankedQueue(secondPage),
       ])
-      await expect(firstPage.getByText('Ranked match', { exact: true }))
+      await expect(firstPage.locator('.match-status-bar').getByText('Ranked', { exact: true }))
         .toBeVisible({ timeout: 45_000 })
-      await expect(secondPage.getByText('Ranked match', { exact: true }))
+      await expect(secondPage.locator('.match-status-bar').getByText('Ranked', { exact: true }))
         .toBeVisible({ timeout: 45_000 })
 
       await prepareBothArmies(firstPage, secondPage)

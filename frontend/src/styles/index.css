@@ -370,13 +370,13 @@ h2 { font-size: 1.65rem; }
   .desktop-match-workspace--captures .desktop-utility-dock { grid-column: 2; grid-row: 1 / span 2; }
 }
 
-@media (min-width: 1024px) and (max-height: 760px) {
+@media (min-width: 1024px) and (max-height: 800px) {
   .match-app-shell { gap: .3rem; padding-block: .35rem; }
   .match-app-shell .match-header { padding-block: .25rem; }
   .match-status-bar { min-height: 2.35rem; padding-block: .2rem; }
-  .formation-workspace .board-wrap { width: min(100%, calc((100dvh - 27rem) * 1.125)); }
-  .active-board-stage .board-wrap { width: min(100%, calc((100dvh - 22.5rem) * 1.125)); }
-  .media-panel:not(.media-panel--collapsed) { max-height: 42%; }
+  .formation-workspace .board-wrap { width: min(100%, calc((100dvh - 27.5rem) * 1.125)); }
+  .active-board-stage .board-wrap { width: min(100%, calc((100dvh - 23rem) * 1.125)); }
+  .media-panel:not(.media-panel--collapsed) { max-height: 34%; }
 }
 
 @media (max-width: 1023px) {
