@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   blockOpponent,
@@ -9,6 +9,7 @@ import {
 import type { ChatError, ChatMessage, ReportCategory } from '../../api/types'
 
 interface MatchChatPanelProps {
+  accountId: string
   matchId: string
   connected: boolean
   messages: ChatMessage[]
@@ -26,6 +27,7 @@ const reportCategories: { value: ReportCategory; label: string }[] = [
 ]
 
 export function MatchChatPanel({
+  accountId,
   matchId,
   connected,
   messages,
@@ -33,22 +35,27 @@ export function MatchChatPanel({
   onSend,
   onBlockedChange,
 }: MatchChatPanelProps) {
-  const [collapsed, setCollapsed] = useState(true)
+  const panelKey = `gotg:chat-panel:${accountId}:${matchId}`
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(panelKey) !== 'open')
   const [unread, setUnread] = useState(0)
+  const [newMessagesBelow, setNewMessagesBelow] = useState(0)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [showReport, setShowReport] = useState(false)
   const [reportCategory, setReportCategory] = useState<ReportCategory>('HARASSMENT')
   const [reportComment, setReportComment] = useState('')
-  const [muted, setMuted] = useState(() =>
-    window.localStorage.getItem(`gotg:chat-muted:${matchId}`) === 'true')
+  const muteKey = `gotg:chat-muted:${accountId}:${matchId}`
+  const [muted, setMuted] = useState(() => window.localStorage.getItem(muteKey) === 'true')
   const latestSequence = useRef(0)
+  const messagesInitialized = useRef(false)
   const historyEnd = useRef<HTMLDivElement | null>(null)
+  const history = useRef<HTMLDivElement | null>(null)
+  const nearBottom = useRef(true)
   const moderation = useQuery({
     queryKey: ['match-moderation', matchId],
     queryFn: () => getModerationStatus(matchId),
     retry: false,
-    enabled: !collapsed,
+    enabled: true,
   })
   const blockMutation = useMutation({
     mutationFn: () => moderation.data?.blockedByYou
@@ -83,14 +90,19 @@ export function MatchChatPanel({
   useEffect(() => {
     const newOpponentMessages = messages.filter((message) =>
       message.sequence > latestSequence.current && !message.ownMessage).length
-    if (collapsed) setUnread((current) => current + newOpponentMessages)
+    if (messagesInitialized.current) {
+      if (collapsed) setUnread((current) => current + newOpponentMessages)
+      else if (!nearBottom.current) setNewMessagesBelow((current) => current + newOpponentMessages)
+    }
     latestSequence.current = Math.max(
       latestSequence.current,
       ...messages.map((message) => message.sequence),
     )
-    if (!collapsed && typeof historyEnd.current?.scrollIntoView === 'function') {
+    if (!collapsed && nearBottom.current && typeof historyEnd.current?.scrollIntoView === 'function') {
       historyEnd.current.scrollIntoView({ block: 'nearest' })
+      setNewMessagesBelow(0)
     }
+    messagesInitialized.current = true
   }, [collapsed, messages])
 
   useEffect(() => {
@@ -104,7 +116,7 @@ export function MatchChatPanel({
   const toggleMute = () => {
     const next = !muted
     setMuted(next)
-    window.localStorage.setItem(`gotg:chat-muted:${matchId}`, String(next))
+    window.localStorage.setItem(muteKey, String(next))
   }
 
   return (
@@ -112,14 +124,17 @@ export function MatchChatPanel({
       <div className="chat-panel__heading">
         <div>
           <p className="eyebrow">Private to participants</p>
-          <h2>Match chat</h2>
+          <h2>{moderation.data?.opponentDisplayName ?? 'Match chat'}</h2>
         </div>
         <button
           type="button"
           className="button button--ghost"
           aria-expanded={!collapsed}
           onClick={() => {
-            setCollapsed((current) => !current)
+            setCollapsed((current) => {
+              localStorage.setItem(panelKey, current ? 'open' : 'closed')
+              return !current
+            })
             setUnread(0)
           }}
         >
@@ -181,28 +196,47 @@ export function MatchChatPanel({
             <p className="error-notice" role="alert">The moderation action could not be completed.</p>
           )}
 
-          <div className="chat-history" aria-live="polite" aria-label="Chat messages">
+          <div ref={history} className="chat-history" role="log" aria-live="polite" aria-label="Chat messages"
+            onScroll={() => {
+              const node = history.current
+              if (node) nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight < 64
+            }}>
             {visibleMessages.length === 0 && (
               <p className="chat-empty">{muted ? 'Opponent messages are muted.' : 'No messages yet.'}</p>
             )}
-            {visibleMessages.map((message) => (
-              <article
-                key={message.id}
-                className={`chat-message${message.ownMessage ? ' chat-message--own' : ''}`}
-              >
-                <div>
-                  <strong>{message.ownMessage ? 'You' : message.senderDisplayName}</strong>
-                  <time dateTime={message.serverTimestamp}>
-                    {new Date(message.serverTimestamp).toLocaleTimeString([], {
-                      hour: '2-digit', minute: '2-digit',
-                    })}
-                  </time>
-                </div>
-                <p>{message.body}</p>
-              </article>
-            ))}
+            {visibleMessages.map((message, index) => {
+              const previous = visibleMessages[index - 1]
+              const grouped = previous?.ownMessage === message.ownMessage
+              const date = new Date(message.serverTimestamp).toLocaleDateString()
+              const previousDate = previous
+                ? new Date(previous.serverTimestamp).toLocaleDateString()
+                : null
+              return (
+                <Fragment key={message.id}>
+                  {date !== previousDate && <p className="chat-date-separator">{date}</p>}
+                  <article className={`chat-message${message.ownMessage ? ' chat-message--own' : ''}${grouped ? ' chat-message--grouped' : ''}`}>
+                    <div>
+                      <strong>{message.ownMessage ? 'You' : message.senderDisplayName}</strong>
+                      <time dateTime={message.serverTimestamp}>
+                        {new Date(message.serverTimestamp).toLocaleTimeString([], {
+                          hour: '2-digit', minute: '2-digit',
+                        })}
+                      </time>
+                    </div>
+                    <p>{message.body}</p>
+                  </article>
+                </Fragment>
+              )
+            })}
             <div ref={historyEnd} />
           </div>
+          {newMessagesBelow > 0 && (
+            <button type="button" className="chat-new-messages" onClick={() => {
+              nearBottom.current = true
+              setNewMessagesBelow(0)
+              historyEnd.current?.scrollIntoView({ block: 'nearest' })
+            }}>New messages ({newMessagesBelow})</button>
+          )}
 
           <form className="chat-compose" onSubmit={(event) => {
             event.preventDefault()
@@ -220,10 +254,16 @@ export function MatchChatPanel({
               value={draft}
               disabled={!connected || moderation.data?.blockedByYou || sending}
               onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  event.currentTarget.form?.requestSubmit()
+                }
+              }}
               placeholder={connected ? 'Write a plain-text message…' : 'Chat reconnecting…'}
             />
             <div>
-              <small>{draft.length}/500</small>
+              <small>{draft.length >= 400 ? `${draft.length}/500` : ''}</small>
               <button
                 type="submit"
                 className="button button--primary"

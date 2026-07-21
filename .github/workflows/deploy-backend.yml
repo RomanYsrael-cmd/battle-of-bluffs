@@ -20,7 +20,24 @@ jobs:
       group: gotg-production-backend
       cancel-in-progress: false
     steps:
+      - name: Inspect the exact successful commit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+      - name: Determine whether backend deployment is required
+        id: changes
+        env:
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if git diff --name-only "${DEPLOY_SHA}^" "$DEPLOY_SHA" | grep -Eq '^(backend/|ops/gotg-deploy-backend$)'; then
+            echo 'backend=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'backend=false' >> "$GITHUB_OUTPUT"
+            echo 'No backend or backend deployment-script changes; production backend restart is intentionally skipped.'
+          fi
       - name: Download exact CI backend artifact
+        if: steps.changes.outputs.backend == 'true'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: backend-jar-${{ github.event.workflow_run.head_sha }}
@@ -28,6 +45,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
       - name: Deploy exact successful commit
+        if: steps.changes.outputs.backend == 'true'
         env:
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |

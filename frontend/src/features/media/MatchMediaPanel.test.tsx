@@ -68,6 +68,7 @@ describe('optional match media', () => {
     mocks.remoteMuted = false
     mocks.remoteName = 'Opponent'
     sessionStorage.clear()
+    localStorage.clear()
   })
 
   it('does not request a token or media permission until explicit consent and starts muted', async () => {

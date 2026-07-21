@@ -113,7 +113,7 @@ export function FormationScreen({ view, session, onView, onStale }: FormationScr
   const emptyCells = FORMATION_CELL_COUNT - formation.placedCount
 
   return (
-    <div className="workspace">
+    <div className="formation-workspace">
       <section className="board-panel" aria-labelledby="formation-title">
         <div className="section-heading">
           <div>
@@ -195,6 +195,7 @@ export function FormationScreen({ view, session, onView, onStale }: FormationScr
         placements={formation.placements}
         selectedPieceId={formation.selectedPieceId}
         locked={ownLocked}
+        compact
         onSelect={formation.selectPiece}
       />
     </div>

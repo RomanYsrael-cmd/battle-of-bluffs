@@ -28,6 +28,7 @@ function renderPanel(
     ...render(
       <QueryClientProvider client={queryClient}>
         <MatchChatPanel
+          accountId="account-1"
           matchId={matchId}
           connected
           messages={messages}
@@ -63,6 +64,7 @@ describe('participant match chat', () => {
     rendered.rerender(
       <QueryClientProvider client={new QueryClient()}>
         <MatchChatPanel
+          accountId="account-1"
           matchId={matchId}
           connected
           messages={[opponentMessage]}
@@ -91,5 +93,22 @@ describe('participant match chat', () => {
     fireEvent.click(screen.getByRole('button', { name: /open chat/i }))
 
     expect(screen.getByRole('alert')).toHaveTextContent('five messages every ten seconds')
+  })
+
+  it('persists collapse preference, aligns bubbles, and sends on Enter but not Shift+Enter', async () => {
+    const ownMessage = { ...opponentMessage, id: 'own-1', sequence: 2, ownMessage: true, body: 'Acknowledged' }
+    const onSend = vi.fn(() => true)
+    const rendered = renderPanel([opponentMessage, ownMessage], null, onSend)
+    fireEvent.click(screen.getByRole('button', { name: /open chat/i }))
+
+    expect(rendered.container.querySelector('.chat-message--own')).toHaveTextContent('Acknowledged')
+    expect(rendered.container.querySelector('.chat-message:not(.chat-message--own)')).toHaveTextContent(opponentMessage.body)
+    expect(localStorage.getItem(`gotg:chat-panel:account-1:${matchId}`)).toBe('open')
+    const composer = screen.getByLabelText('Message')
+    fireEvent.change(composer, { target: { value: 'line one' } })
+    fireEvent.keyDown(composer, { key: 'Enter', shiftKey: true })
+    expect(onSend).not.toHaveBeenCalled()
+    fireEvent.keyDown(composer, { key: 'Enter' })
+    await waitFor(() => expect(onSend).toHaveBeenCalledWith('line one'))
   })
 })

@@ -41,6 +41,7 @@ describe('server-aware formation setup', () => {
     renderFormation(matchView({ playerTwoOccupied: true }))
     expect(screen.getByRole('button', { name: 'Lock formation' })).toBeDisabled()
     expect(screen.getByText('0/21 placed · 27 empty')).toBeInTheDocument()
+    expect(document.querySelectorAll('.tray-grid .piece')).toHaveLength(21)
   })
 
   it('submits Player 2 canonical coordinates after visually rotating the board', async () => {

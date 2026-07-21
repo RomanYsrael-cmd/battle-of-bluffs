@@ -147,9 +147,9 @@ test.describe.serial('complete local platform', () => {
         enterRankedQueue(firstPage),
         enterRankedQueue(secondPage),
       ])
-      await expect(firstPage.getByText('Ranked match', { exact: true }))
+      await expect(firstPage.locator('.match-status-bar').getByText('Ranked', { exact: true }))
         .toBeVisible({ timeout: 45_000 })
-      await expect(secondPage.getByText('Ranked match', { exact: true }))
+      await expect(secondPage.locator('.match-status-bar').getByText('Ranked', { exact: true }))
         .toBeVisible({ timeout: 45_000 })
 
       await prepareBothArmies(firstPage, secondPage)
@@ -516,7 +516,7 @@ async function formationDiagnostic(
 }
 
 async function deployFormation(page: Page) {
-  const sideLabel = page.locator('.match-header').getByText(/^Side [12]$/)
+  const sideLabel = page.locator('.match-status-bar').getByText(/^Side [12]$/)
   await expect(sideLabel).toBeVisible()
   const firstRow = await sideLabel.textContent() === 'Side 1' ? 0 : 5
   const ranks = [
@@ -570,7 +570,7 @@ async function makeOneLegalMove(firstPage: Page, secondPage: Page) {
   const firstMoves = await firstPage.getByRole('heading', { name: 'Your turn' }).isVisible()
   const mover = firstMoves ? firstPage : secondPage
   const observer = firstMoves ? secondPage : firstPage
-  const sideLabel = mover.locator('.match-header').getByText(/^Side [12]$/)
+  const sideLabel = mover.locator('.match-status-bar').getByText(/^Side [12]$/)
   await expect(sideLabel).toBeVisible()
   const sideOneMoves = await sideLabel.textContent() === 'Side 1'
   const sourceRow = sideOneMoves ? 2 : 5

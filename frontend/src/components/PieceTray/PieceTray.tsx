@@ -7,10 +7,11 @@ interface PieceTrayProps {
   placements: Placements
   selectedPieceId: string | null
   locked: boolean
+  compact?: boolean
   onSelect: (pieceId: string) => void
 }
 
-export function PieceTray({ inventory, placements, selectedPieceId, locked, onSelect }: PieceTrayProps) {
+export function PieceTray({ inventory, placements, selectedPieceId, locked, compact = false, onSelect }: PieceTrayProps) {
   const remaining = inventory.filter((piece) => !placements[piece.id])
 
   return (
@@ -29,6 +30,7 @@ export function PieceTray({ inventory, placements, selectedPieceId, locked, onSe
               key={piece.id}
               piece={piece}
               selected={selectedPieceId === piece.id}
+              compact={compact}
               disabled={locked}
               onClick={() => onSelect(piece.id)}
             />
