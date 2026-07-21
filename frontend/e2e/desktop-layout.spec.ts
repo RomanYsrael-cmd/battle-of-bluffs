@@ -105,7 +105,9 @@ for (const viewport of [
     expect(board!.width).toBeGreaterThanOrEqual(viewport.height * .8)
     const camera = await page.locator('.floating-camera-panel').boundingBox()
     const chat = await page.locator('.chat-panel').boundingBox()
+    const actions = await page.locator('.actions').boundingBox()
     expect(board!.x + board!.width).toBeLessThanOrEqual(Math.min(camera!.x, chat!.x) + 1)
+    expect(actions!.x + actions!.width).toBeLessThanOrEqual(board!.x + 1)
     await expect(page.locator('.account-bar')).toBeHidden()
     await expect(page.locator('.match-header')).toBeHidden()
   })
@@ -119,6 +121,11 @@ test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ p
     await expect(page.getByRole('button', { name })).toBeInViewport()
   }
   await expectInsideViewport(page, '.board')
+  const board = await page.locator('.board').boundingBox()
+  const actions = await page.locator('.formation-workspace .actions').boundingBox()
+  const chat = await page.locator('.chat-panel').boundingBox()
+  expect(actions!.x + actions!.width).toBeLessThanOrEqual(board!.x + 1)
+  expect(board!.x + board!.width).toBeLessThanOrEqual(chat!.x + 1)
   expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
 })
 
