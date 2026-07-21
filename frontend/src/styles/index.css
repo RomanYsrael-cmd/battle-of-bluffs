@@ -346,7 +346,7 @@ h2 { font-size: 1.65rem; }
   .formation-workspace .board-panel > .section-heading > div:first-child { display: none; }
   .formation-workspace .opponent-status { position: absolute; z-index: 4; top: .65rem; left: .75rem; margin: 0; padding: .35rem .55rem; border-radius: .4rem; background: #11110ed9; font-size: .7rem; }
   .formation-workspace .waiting-message { position: absolute; z-index: 5; top: 2.8rem; left: .75rem; max-width: 24rem; margin: 0; }
-  .formation-workspace .board-wrap { width: clamp(40rem, 52vw, 52rem); max-width: calc(100vw - clamp(16rem, 21vw, 18rem) - 2rem); margin-right: auto; margin-left: calc(clamp(16rem, 21vw, 18rem) + .5rem); }
+  .formation-workspace .board-wrap { width: clamp(40rem, 51.5vw, 52rem); max-width: calc(100vw - clamp(16rem, 21vw, 18rem) - 2rem); margin-right: auto; margin-left: calc(clamp(16rem, 21vw, 18rem) + .5rem); }
   .active-board-stage .board-wrap { width: min(100%, calc((100dvh - 10rem) * 1.125)); }
   .desktop-match-workspace--captures .active-board-stage .board-wrap { margin-right: auto; margin-left: 0; }
   .match-app-shell .board { aspect-ratio: 9 / 8; }
