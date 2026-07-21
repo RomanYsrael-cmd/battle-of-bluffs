@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { lockFormation, submitFormation } from '../../api/client'
 import { executeWithOneStaleRetry } from '../../api/staleCommand'
@@ -51,6 +51,22 @@ export function FormationScreen({ view, session, onView, onStale }: FormationScr
     view.ownPieces.length === FORMATION_PIECE_COUNT ? currentSignature : '',
   )
   const submittedAttemptSignature = useRef('')
+  const [draggedPieceId, setDraggedPieceId] = useState<string | null>(null)
+  const floatingTray = useFloatingFormationTray(
+    `gotg:formation-tray-position:${view.requestingPlayerId}:${view.matchId}`,
+  )
+
+  const startPieceDrag = (pieceId: string, event: ReactDragEvent<HTMLButtonElement>) => {
+    if (ownLocked) {
+      event.preventDefault()
+      return
+    }
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', 'gotg-formation-piece')
+    setDraggedPieceId(pieceId)
+  }
+
+  const stopPieceDrag = () => setDraggedPieceId(null)
 
   const submitMutation = useMutation({
     mutationFn: () => {
@@ -142,6 +158,13 @@ export function FormationScreen({ view, session, onView, onStale }: FormationScr
           selectedPieceId={formation.selectedPieceId}
           side={view.requestingSide}
           locked={ownLocked}
+          draggedPieceId={draggedPieceId}
+          onPieceDragStart={startPieceDrag}
+          onPieceDragEnd={stopPieceDrag}
+          onPieceDrop={(pieceId, position) => {
+            formation.placePiece(pieceId, position)
+            stopPieceDrag()
+          }}
           onCellClick={formation.selectCell}
           onPieceSelect={formation.selectPiece}
         />
@@ -190,16 +213,123 @@ export function FormationScreen({ view, session, onView, onStale }: FormationScr
         <ApiErrorNotice error={error} />
       </section>
 
-      <PieceTray
-        inventory={formation.inventory}
-        placements={formation.placements}
-        selectedPieceId={formation.selectedPieceId}
-        locked={ownLocked}
-        compact
-        onSelect={formation.selectPiece}
-      />
+      <div
+        ref={floatingTray.panelRef}
+        style={floatingTray.style}
+        className={`floating-formation-tray${floatingTray.dragging ? ' floating-formation-tray--dragging' : ''}${draggedPieceId && formation.placements[draggedPieceId] ? ' floating-formation-tray--drop-target' : ''}`}
+        onDragOver={(event) => {
+          if (!draggedPieceId || !formation.placements[draggedPieceId]) return
+          event.preventDefault()
+          event.dataTransfer.dropEffect = 'move'
+        }}
+        onDrop={(event) => {
+          if (!draggedPieceId || !formation.placements[draggedPieceId]) return
+          event.preventDefault()
+          formation.returnPieceToTray(draggedPieceId)
+          stopPieceDrag()
+        }}
+      >
+        <PieceTray
+          inventory={formation.inventory}
+          placements={formation.placements}
+          selectedPieceId={formation.selectedPieceId}
+          locked={ownLocked}
+          compact
+          draggedPieceId={draggedPieceId}
+          onDragStart={startPieceDrag}
+          onDragEnd={stopPieceDrag}
+          onHeaderPointerDown={floatingTray.onPointerDown}
+          onSelect={formation.selectPiece}
+        />
+      </div>
     </div>
   )
+}
+
+function useFloatingFormationTray(storageKey: string): {
+  panelRef: RefObject<HTMLDivElement | null>
+  style: CSSProperties | undefined
+  dragging: boolean
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
+} {
+  const panelRef = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ offsetX: number; offsetY: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as { left?: unknown; top?: unknown } | null
+      return saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)
+        ? { left: Number(saved.left), top: Number(saved.top) }
+        : null
+    } catch {
+      return null
+    }
+  })
+
+  useEffect(() => {
+    const move = (event: PointerEvent) => {
+      const panel = panelRef.current
+      if (!drag.current || !panel) return
+      const margin = 8
+      setPosition({
+        left: Math.min(Math.max(margin, event.clientX - drag.current.offsetX),
+          Math.max(margin, window.innerWidth - panel.offsetWidth - margin)),
+        top: Math.min(Math.max(margin, event.clientY - drag.current.offsetY),
+          Math.max(margin, window.innerHeight - panel.offsetHeight - margin)),
+      })
+    }
+    const stop = () => {
+      if (!drag.current) return
+      drag.current = null
+      setDragging(false)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+    window.addEventListener('pointercancel', stop)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      window.removeEventListener('pointercancel', stop)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (position) localStorage.setItem(storageKey, JSON.stringify(position))
+  }, [position, storageKey])
+
+  useEffect(() => {
+    const constrainToViewport = () => {
+      const panel = panelRef.current
+      if (!panel) return
+      setPosition((current) => {
+        if (!current) return current
+        const margin = 8
+        const left = Math.max(margin, Math.min(current.left, Math.max(margin, window.innerWidth - panel.offsetWidth - margin)))
+        const top = Math.max(margin, Math.min(current.top, Math.max(margin, window.innerHeight - panel.offsetHeight - margin)))
+        return left === current.left && top === current.top ? current : { left, top }
+      })
+    }
+    window.addEventListener('resize', constrainToViewport)
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(constrainToViewport)
+    if (panelRef.current) observer?.observe(panelRef.current)
+    return () => {
+      window.removeEventListener('resize', constrainToViewport)
+      observer?.disconnect()
+    }
+  }, [])
+
+  return {
+    panelRef,
+    style: position ? { left: position.left, top: position.top, right: 'auto' } : undefined,
+    dragging,
+    onPointerDown: (event) => {
+      const rect = panelRef.current?.getBoundingClientRect()
+      if (!rect) return
+      drag.current = { offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top }
+      setDragging(true)
+      event.preventDefault()
+    },
+  }
 }
 
 function isSubmitRetrySafe(
