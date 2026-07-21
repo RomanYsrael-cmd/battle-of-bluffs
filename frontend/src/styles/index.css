@@ -346,8 +346,7 @@ h2 { font-size: 1.65rem; }
   .formation-workspace .board-panel > .section-heading > div:first-child { display: none; }
   .formation-workspace .opponent-status { position: absolute; z-index: 4; top: .65rem; left: .75rem; margin: 0; padding: .35rem .55rem; border-radius: .4rem; background: #11110ed9; font-size: .7rem; }
   .formation-workspace .waiting-message { position: absolute; z-index: 5; top: 2.8rem; left: .75rem; max-width: 24rem; margin: 0; }
-  .formation-workspace .board-wrap { width: min(100%, calc((100dvh - 10.5rem) * 1.125)); }
-  .formation-workspace .board-wrap { margin-right: auto; margin-left: calc(clamp(16rem, 21vw, 18rem) + .5rem); }
+  .formation-workspace .board-wrap { width: clamp(40rem, 51.5vw, 52rem); max-width: calc(100vw - clamp(16rem, 21vw, 18rem) - 2rem); margin-right: auto; margin-left: calc(clamp(16rem, 21vw, 18rem) + .5rem); }
   .active-board-stage .board-wrap { width: min(100%, calc((100dvh - 10rem) * 1.125)); }
   .desktop-match-workspace--captures .active-board-stage .board-wrap { margin-right: auto; margin-left: 0; }
   .match-app-shell .board { aspect-ratio: 9 / 8; }
@@ -424,6 +423,16 @@ h2 { font-size: 1.65rem; }
   .desktop-utility-dock .history-drawer { display: none; }
 }
 
+@media (min-width: 1200px) {
+  .formation-workspace .actions { top: calc(clamp(.65rem, 1.35vw, 1.25rem) + .55rem); right: calc(clamp(.8rem, 2vw, 2rem) + clamp(18rem, 24vw, 20rem) + 1rem); bottom: auto; left: calc(clamp(.8rem, 2vw, 2rem) + clamp(16.5rem, 20vw, 19rem) + clamp(16.5rem, 20vw, 18rem)); flex-wrap: nowrap; width: auto; gap: .35rem; }
+  .formation-workspace .actions .button { flex: 1 1 0; min-width: 0; min-height: 2rem; padding: .3rem .4rem; font-size: .62rem; line-height: 1.15; }
+}
+
+@media (min-width: 1024px) and (max-height: 700px) {
+  body:has(.match-app-shell--formation) { height: auto; overflow-x: hidden; overflow-y: auto; }
+  .match-app-shell--formation { height: auto; min-height: 46rem; overflow: visible; }
+}
+
 @media (min-width: 1024px) and (max-width: 1199px) {
   .desktop-match-workspace--captures { grid-template-columns: 8rem minmax(0, 1fr); }
   .desktop-match-workspace--captures .capture-group { padding: .6rem; }
@@ -433,7 +442,6 @@ h2 { font-size: 1.65rem; }
 @media (min-width: 1024px) and (max-height: 800px) {
   .match-app-shell { gap: .55rem; padding-block: .55rem; }
   .match-status-bar { min-height: 4.1rem; padding-block: .3rem; }
-  .formation-workspace .board-wrap { width: min(100%, calc((100dvh - 10.5rem) * 1.125)); }
   .active-board-stage .board-wrap { width: min(100%, calc((100dvh - 10rem) * 1.125)); }
 }
 
