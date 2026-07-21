@@ -36,10 +36,17 @@ export function DesktopMatchShell({
       <MatchHeader view={view} onLeave={onLeave} />
       <section className="match-status-bar" aria-label="Match status and timers">
         <div className="match-status-summary">
-          <span className="match-status-turn">{turn}</span>
-          <span>{view.mode === 'RANKED' ? 'Ranked' : 'Casual'}</span>
-          <span>Side {view.requestingSide === 'PLAYER_ONE' ? '1' : '2'}</span>
-          <span>{view.phase}</span>
+          <span className="match-status-turn"><span aria-hidden="true">●</span>{turn}</span>
+          <span className="match-status-meta">
+            <span>{view.mode === 'RANKED' ? 'Ranked' : 'Casual'}</span>
+            <span aria-hidden="true">•</span>
+            <span>Side {view.requestingSide === 'PLAYER_ONE' ? '1' : '2'}</span>
+            <span aria-hidden="true">•</span>
+            <span>{view.phase}</span>
+          </span>
+          <button type="button" className="match-status-exit" onClick={onLeave} aria-label="Return to dashboard">
+            <span aria-hidden="true">←</span>
+          </button>
         </div>
         <MatchTimers view={view} />
         <div className={`connection-state connection-state--${connectionState.toLowerCase()}`} role="status">

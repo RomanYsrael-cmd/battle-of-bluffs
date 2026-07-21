@@ -142,6 +142,16 @@ export function MatchChatPanel({
         </button>
       </div>
 
+      {collapsed && (
+        <button type="button" className="chat-quick-open" onClick={() => {
+          localStorage.setItem(panelKey, 'open')
+          setCollapsed(false)
+          setUnread(0)
+        }}>
+          <span>Type a message…</span><span aria-hidden="true">➤</span>
+        </button>
+      )}
+
       {!collapsed && (
         <>
           <div className="chat-tools">

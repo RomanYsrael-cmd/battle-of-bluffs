@@ -74,8 +74,9 @@ describe('participant match chat', () => {
       </QueryClientProvider>,
     )
     expect(await screen.findByRole('button', { name: /1 unread/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /type a message/i })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /open chat/i }))
+    fireEvent.click(screen.getByRole('button', { name: /type a message/i }))
     const messageBox = await screen.findByLabelText('Message')
     fireEvent.change(messageBox, { target: { value: '  hello general  ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Send' }))
