@@ -183,11 +183,28 @@ test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ p
   await expectInsideViewport(page, '.board')
   const board = await page.locator('.board').boundingBox()
   const actions = await page.locator('.formation-workspace .actions').boundingBox()
-  const chat = await page.locator('.chat-panel').boundingBox()
-  expect(actions!.x + actions!.width).toBeLessThanOrEqual(board!.x + 1)
-  expect(board!.x + board!.width).toBeLessThanOrEqual(chat!.x + 1)
+  const deadline = await page.locator('.setup-clock').boundingBox()
+  const connection = await page.locator('.connection-state').boundingBox()
+  expect(actions!.x).toBeGreaterThanOrEqual(deadline!.x + deadline!.width)
+  expect(actions!.x + actions!.width).toBeLessThanOrEqual(connection!.x + 1)
+  expect(Math.abs((actions!.y + actions!.height / 2) - (deadline!.y + deadline!.height / 2)))
+    .toBeLessThanOrEqual(8)
   expect(board).toEqual(boardBefore)
   expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
+})
+
+test('formation board keeps its desktop size when browser chrome reduces viewport height', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await openMockMatch(page, 'FORMATION')
+  const fullHeightBoard = await page.locator('.board').boundingBox()
+
+  await page.setViewportSize({ width: 1366, height: 640 })
+  const shortHeightBoard = await page.locator('.board').boundingBox()
+
+  expect(shortHeightBoard!.width).toBeCloseTo(fullHeightBoard!.width, 0)
+  expect(shortHeightBoard!.height).toBeCloseTo(fullHeightBoard!.height, 0)
+  expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight))
+    .toBeGreaterThan(0)
 })
 
 test('stacked fallback activates immediately below the 1024px desktop breakpoint', async ({ page }) => {
