@@ -372,7 +372,6 @@ h2 { font-size: 1.65rem; }
   .match-app-shell { gap: .3rem; padding-block: .35rem; }
   .match-app-shell .match-header { padding-block: .25rem; }
   .match-status-bar { min-height: 2.35rem; padding-block: .2rem; }
-  .match-status-summary span:not(.match-status-turn) { display: none; }
   .formation-workspace .board-wrap { width: min(100%, calc((100dvh - 27rem) * 1.125)); }
   .active-board-stage .board-wrap { width: min(100%, calc((100dvh - 22.5rem) * 1.125)); }
   .media-panel:not(.media-panel--collapsed) { max-height: 42%; }
