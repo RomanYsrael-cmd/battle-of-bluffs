@@ -37,6 +37,7 @@ const activeView = (overrides: Partial<PlayerMatchView> = {}) => matchView({
 function renderActive(view: PlayerMatchView) {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
   const onView = vi.fn()
+  const onLeave = vi.fn()
   render(
     <QueryClientProvider client={client}>
       <ActiveMatchScreen
@@ -44,11 +45,11 @@ function renderActive(view: PlayerMatchView) {
         session={session}
         onView={onView}
         onStale={vi.fn()}
-        onLeave={vi.fn()}
+        onLeave={onLeave}
       />
     </QueryClientProvider>,
   )
-  return { onView }
+  return { onView, onLeave }
 }
 
 describe('active and terminal match screens', () => {
@@ -178,6 +179,14 @@ describe('active and terminal match screens', () => {
 
     expect(confirm).toHaveBeenCalledTimes(2)
     await waitFor(() => expect(onView).toHaveBeenCalledWith(commandResponse(terminal)))
+  })
+
+  it('returns to the dashboard without resigning', () => {
+    const { onLeave } = renderActive(activeView())
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back to dashboard' }))
+
+    expect(onLeave).toHaveBeenCalledOnce()
   })
 
   it('renders terminal result and complete server-supplied disclosure', () => {

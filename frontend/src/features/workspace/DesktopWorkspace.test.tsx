@@ -33,7 +33,7 @@ describe('desktop match workspace', () => {
     expect(screen.getByLabelText('Match communication and history')).toBeInTheDocument()
   })
 
-  it('groups known losses while opponent capture ranks remain absent during active play', () => {
+  it('shows grouped own losses without the captured-opponent panel', () => {
     const view = matchView({
       phase: 'ACTIVE',
       ownPieces: [
@@ -48,7 +48,8 @@ describe('desktop match workspace', () => {
     render(<CapturedPiecesRail view={view} />)
 
     expect(screen.getByLabelText('Private, 2')).toHaveTextContent('×2')
-    expect(screen.getByLabelText(/2 captured opponent pieces; ranks remain hidden/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Your lost pieces' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Captured by you' })).not.toBeInTheDocument()
     expect(screen.queryByText('SPY')).not.toBeInTheDocument()
   })
 
@@ -62,7 +63,7 @@ describe('desktop match workspace', () => {
       })),
     })
     render(<CapturedPiecesRail view={view} />)
-    expect(screen.getAllByText('No captures yet')).toHaveLength(2)
+    expect(screen.getByText('No captures yet')).toBeInTheDocument()
   })
 
   it('collapses history independently and persists the account-scoped preference', () => {

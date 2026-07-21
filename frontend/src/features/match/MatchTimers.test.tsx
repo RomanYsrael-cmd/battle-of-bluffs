@@ -66,4 +66,20 @@ describe('authoritative timer and presence rendering', () => {
     expect(screen.getByText('5:00')).toBeInTheDocument()
     expect(screen.getByText(/opponent disconnected · 1:00 grace remaining/i)).toBeInTheDocument()
   })
+
+  it('does not inflate completed clocks with an inactive low-time warning', () => {
+    render(<MatchTimers view={matchView({
+      phase: 'TERMINAL',
+      timerMode: 'STANDARD_15_PLUS_5',
+      currentPlayer: null,
+      timer: {
+        ...matchView().timer,
+        playerOneRemainingMillis: 0,
+        playerTwoRemainingMillis: 0,
+      },
+    })} />)
+
+    expect(screen.queryByText('Low time')).not.toBeInTheDocument()
+    expect(document.querySelector('.play-clock--low')).not.toBeInTheDocument()
+  })
 })

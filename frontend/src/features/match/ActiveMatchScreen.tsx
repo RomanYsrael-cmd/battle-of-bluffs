@@ -102,6 +102,13 @@ export function ActiveMatchScreen({
         <div className="actions">
           <button
             type="button"
+            className="button button--ghost"
+            onClick={onLeave}
+          >
+            Back to dashboard
+          </button>
+          <button
+            type="button"
             className="button button--secondary"
             disabled={terminal || resignMutation.isPending}
             onClick={() => {
