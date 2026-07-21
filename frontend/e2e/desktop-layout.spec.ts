@@ -8,11 +8,11 @@ const ranks = [
   'PRIVATE', 'PRIVATE', 'PRIVATE', 'PRIVATE', 'PRIVATE', 'PRIVATE', 'SPY', 'SPY', 'FLAG',
 ]
 
-const baseView = (phase: 'FORMATION' | 'ACTIVE') => ({
+const baseView = (phase: 'FORMATION' | 'ACTIVE' | 'TERMINAL') => ({
   matchId, roomCode: 'DESK42', version: 9, liveSequence: 9, phase,
   mode: 'CASUAL', timerMode: 'STANDARD_15_PLUS_5', requestingPlayerId: 'desktop-account',
   requestingSide: 'PLAYER_ONE', playerOneOccupied: true, playerTwoOccupied: true,
-  playerOneLocked: phase === 'ACTIVE', playerTwoLocked: phase === 'ACTIVE',
+  playerOneLocked: phase !== 'FORMATION', playerTwoLocked: phase !== 'FORMATION',
   currentPlayer: phase === 'ACTIVE' ? 'PLAYER_ONE' : null,
   ownPieces: phase === 'FORMATION' ? [] : ranks.map((rank, index) => ({
     id: `own-${index}`, rank, position: { row: Math.floor(index / 9), column: index % 9 }, alive: true,
@@ -24,7 +24,9 @@ const baseView = (phase: 'FORMATION' | 'ACTIVE') => ({
     sequence: index + 1, type: 'MOVE_APPLIED', actor: index % 2 ? 'PLAYER_TWO' : 'PLAYER_ONE',
     source: { row: 2, column: index }, destination: { row: 3, column: index },
     removedPieceIds: [], ownBattleOutcome: null, terminalResult: null,
-  })) : [], pendingFlagChallenge: null, terminalResult: null, postMatchPieces: [],
+  })) : [], pendingFlagChallenge: null,
+  terminalResult: phase === 'TERMINAL' ? { winner: 'PLAYER_ONE', reason: 'FLAG_CAPTURE' } : null,
+  postMatchPieces: [],
   timer: {
     playerOneRemainingMillis: 894_000, playerTwoRemainingMillis: 900_000,
     formationDeadline: phase === 'FORMATION' ? '2099-07-21T10:10:00Z' : null,
@@ -39,7 +41,7 @@ const baseView = (phase: 'FORMATION' | 'ACTIVE') => ({
   },
 })
 
-async function openMockMatch(page: Page, phase: 'FORMATION' | 'ACTIVE') {
+async function openMockMatch(page: Page, phase: 'FORMATION' | 'ACTIVE' | 'TERMINAL') {
   const view = baseView(phase)
   const browserErrors: string[] = []
   page.on('pageerror', (error) => browserErrors.push(error.message))
@@ -53,8 +55,8 @@ async function openMockMatch(page: Page, phase: 'FORMATION' | 'ACTIVE') {
     if (pathname === '/api/matches/current') return route.fulfill({ json: {
       activities: [{
         matchId, mode: 'CASUAL', phase, version: 9, roomCode: 'DESK42', side: 'PLAYER_ONE',
-        opponentPresent: true, ownFormationSubmitted: false, ownLocked: phase === 'ACTIVE',
-        opponentLocked: phase === 'ACTIVE', currentPlayer: view.currentPlayer,
+        opponentPresent: true, ownFormationSubmitted: false, ownLocked: phase !== 'FORMATION',
+        opponentLocked: phase !== 'FORMATION', currentPlayer: view.currentPlayer,
         createdAt: null, updatedAt: null, canResume: true, canCancel: false, canLeave: false,
         resumeRoute: `/matches/${matchId}`,
       }], multipleOpenMatches: false,
@@ -98,6 +100,9 @@ for (const viewport of [
     await expect(page.getByRole('button', { name: /Open media settings/ })).toBeVisible()
     await expect(page.locator('.board-cell__coordinate')).toHaveCount(0)
     await expect(page.locator('.board-rank-labels span')).toHaveCount(8)
+    await expect(page.locator('.board-rank-labels span').first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Your lost pieces' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Captured by you' })).toHaveCount(0)
     expect(await page.evaluate(() => ({
       html: document.documentElement.scrollHeight - document.documentElement.clientHeight,
       body: document.body.scrollHeight - document.body.clientHeight,
@@ -111,12 +116,30 @@ for (const viewport of [
     const camera = await page.locator('.floating-camera-panel').boundingBox()
     const chat = await page.locator('.chat-panel').boundingBox()
     const actions = await page.locator('.actions').boundingBox()
+    const dashboardButton = await page.getByRole('button', { name: 'Back to dashboard' }).boundingBox()
+    const resignButton = await page.getByRole('button', { name: 'Resign match' }).boundingBox()
     expect(board!.x + board!.width).toBeLessThanOrEqual(Math.min(camera!.x, chat!.x) + 1)
     expect(actions!.x + actions!.width).toBeLessThanOrEqual(board!.x + 1)
+    expect(dashboardButton!.y + dashboardButton!.height).toBeLessThanOrEqual(resignButton!.y)
     await expect(page.locator('.account-bar')).toBeHidden()
     await expect(page.locator('.match-header')).toBeHidden()
   })
 }
+
+test('terminal status and the complete board fit 1366x768', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 })
+  await openMockMatch(page, 'TERMINAL')
+
+  await expect(page.getByText('Low time')).toHaveCount(0)
+  await expectInsideViewport(page, '.match-status-bar')
+  await expectInsideViewport(page, '.match-board')
+  const status = await page.locator('.match-status-bar').boundingBox()
+  expect(status!.height).toBeLessThanOrEqual(90)
+  await expect(page.locator('.board-rank-labels span').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Back to dashboard' })).toBeInViewport()
+  await expect(page.getByRole('button', { name: 'Resign match' })).toBeInViewport()
+  expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
+})
 
 test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })

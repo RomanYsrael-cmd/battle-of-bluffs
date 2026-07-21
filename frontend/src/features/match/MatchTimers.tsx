@@ -78,7 +78,7 @@ function Clock({ label, remaining, active }: {
   remaining: number
   active: boolean
 }) {
-  const low = remaining <= 60_000
+  const low = active && remaining <= 60_000
   return (
     <div className={`play-clock${active ? ' play-clock--active' : ''}${low ? ' play-clock--low' : ''}`}
       aria-label={`${label}: ${formatDuration(remaining)}${low ? ', low time' : ''}`}>
