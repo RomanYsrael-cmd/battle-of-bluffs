@@ -27,8 +27,12 @@ type MediaStatus = 'OFF' | 'CONNECTING' | 'CONNECTED' | 'RECONNECTING' | 'ERROR'
 
 export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked }: MatchMediaPanelProps) {
   const consentKey = mediaSessionKey(accountId, matchId, participantCycle)
+  const panelKey = `gotg:media-panel:${accountId}:${matchId}`
   const [resumeRequested] = useState(() => sessionStorage.getItem(consentKey) === 'true')
-  const [collapsed, setCollapsed] = useState(!resumeRequested)
+  const [collapsed, setCollapsed] = useState(() => {
+    const saved = localStorage.getItem(panelKey)
+    return saved ? saved !== 'open' : !resumeRequested
+  })
   const [token, setToken] = useState<string>()
   const [status, setStatus] = useState<MediaStatus>('OFF')
   const [error, setError] = useState('')
@@ -78,10 +82,14 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
           <h2>Audio &amp; video</h2>
         </div>
         <button type="button" className="button button--ghost" aria-expanded={!collapsed}
-          onClick={() => setCollapsed((value) => !value)}>
+          onClick={() => setCollapsed((value) => {
+            localStorage.setItem(panelKey, value ? 'open' : 'closed')
+            return !value
+          })}>
           {collapsed ? 'Open media' : 'Collapse'}
         </button>
       </div>
+      {collapsed && <p className={`media-compact-status media-status--${status.toLowerCase()}`}>{mediaStatusLabel(status)} · mic off · camera off</p>}
       {!collapsed && (
         <>
           <p className="media-consent">

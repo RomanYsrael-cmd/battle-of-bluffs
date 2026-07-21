@@ -2,6 +2,13 @@
 
 Updated: 2026-07-21 (Asia/Manila)
 
+## Desktop match workspace release (in progress)
+
+- Source recovery point: annotated tag `backup/pre-desktop-workspace-20260721-094934` at `69870a8a8f23ff65ca8df3ea9ccd8828c5d82945`; verified complete bundle `/home/romanysrael/battle-of-bluffs-pre-desktop-workspace-20260721-094934.bundle` is stored outside the repository.
+- Branch `feat/desktop-match-workspace` introduces a 1024px desktop application shell with a compact status/timer bar, height-and-width constrained board, grouped rank-safe captures, fixed utility dock, messenger-style chat, compact optional media presentation, collapsible history, and a preserved stacked mobile/tablet fallback.
+- Deterministic Chromium layout validation passes at 1280×720, 1366×768, 1440×900 and 1920×1080 with no document scrolling; the 1366×768 formation view keeps the complete board, all 21 tray pieces, primary actions, chat, and media controls inside the viewport. Production validation and stabilization tagging remain pending until the change is merged and deployed.
+- This is a frontend-only application change. The backend deployment workflow now detects backend/deploy-helper paths and intentionally skips artifact deployment and `gotg-backend.service` restart for frontend-only merged commits.
+
 ## Optional media production release
 
 - PR #14 merged the optional LiveKit implementation at `f534504ce8dc71c56568d3e6725f928d60a6701f`; PR #15 merged the exact-host CSP at `3bee14069bad373cb25fe8085f84cf89a3eceb2e`; PR #16 fixed the empty-remote-participant startup crash at `39c143bf76e989811d3df5e3f89d293fd46be893`. Every push and pull-request CI, browser E2E, secret scan, dependency scan, CodeQL, and Vercel gate passed before merge.

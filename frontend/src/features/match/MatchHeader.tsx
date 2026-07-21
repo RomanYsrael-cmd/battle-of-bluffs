@@ -19,8 +19,6 @@ export function MatchHeader({ view, onLeave }: MatchHeaderProps) {
               <input className="room-code-display" readOnly value={view.roomCode} aria-label="Room code" />
             </label>
           )}
-          <span>Side {view.requestingSide === 'PLAYER_ONE' ? '1' : '2'}</span>
-          <span>Phase {view.phase}</span>
           <span>{view.timerMode === 'CASUAL_UNTIMED' ? 'Untimed' : '15 min + 5 sec'}</span>
           <span>Version {view.version}</span>
         </div>

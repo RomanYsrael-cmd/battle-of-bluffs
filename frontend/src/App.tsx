@@ -41,8 +41,9 @@ import {
 } from './features/home/HomeScreen'
 import { LandingScreen } from './features/home/LandingScreen'
 import { ActiveMatchScreen } from './features/match/ActiveMatchScreen'
-import { MatchHeader } from './features/match/MatchHeader'
-import { MatchTimers } from './features/match/MatchTimers'
+import { CapturedPiecesRail } from './features/workspace/CapturedPiecesRail'
+import { DesktopMatchShell } from './features/workspace/DesktopMatchShell'
+import { MatchHistoryDrawer } from './features/workspace/MatchHistoryDrawer'
 import {
   clearSession,
   loadSession,
@@ -198,14 +199,44 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
     )
   }
 
+  const utilityDock = query.data.playerTwoOccupied ? (
+    <>
+      <Suspense fallback={<p role="status">Loading optional media controls…</p>}>
+        <MatchMediaPanel
+          key={`media-${latestParticipantCycle(query.data.events)}`}
+          accountId={query.data.requestingPlayerId}
+          matchId={session.matchId}
+          participantCycle={latestParticipantCycle(query.data.events)}
+          blocked={opponentBlocked}
+        />
+      </Suspense>
+      <MatchChatPanel
+        accountId={query.data.requestingPlayerId}
+        matchId={session.matchId}
+        connected={connectionState === 'SYNCHRONIZED'}
+        messages={chatMessages}
+        error={chatError}
+        onSend={sendChat}
+        onBlockedChange={setOpponentBlocked}
+      />
+      <MatchHistoryDrawer
+        accountId={query.data.requestingPlayerId}
+        matchId={session.matchId}
+        events={query.data.events}
+      />
+    </>
+  ) : undefined
+
   return (
-    <main className="app-shell">
-      <MatchHeader view={query.data} onLeave={onLeave} />
-      <MatchTimers view={query.data} />
-      <p className={`connection-state connection-state--${connectionState.toLowerCase()}`} role="status">
-        {connectionLabel(connectionState)}
-      </p>
-      {syncMessage && <p className="sync-message" role="status">{syncMessage}</p>}
+    <DesktopMatchShell
+      view={query.data}
+      connectionState={connectionState}
+      connectionLabel={connectionLabel(connectionState)}
+      syncMessage={syncMessage}
+      onLeave={onLeave}
+      captures={query.data.phase === 'FORMATION' ? undefined : <CapturedPiecesRail view={query.data} />}
+      utilityDock={utilityDock}
+    >
       {query.data.phase === 'FORMATION' ? (
         <FormationScreen
           view={query.data}
@@ -222,28 +253,7 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
           onLeave={onLeave}
         />
       )}
-      {query.data.playerTwoOccupied && (
-        <>
-          <Suspense fallback={<p role="status">Loading optional media controls…</p>}>
-            <MatchMediaPanel
-              key={`media-${latestParticipantCycle(query.data.events)}`}
-              accountId={query.data.requestingPlayerId}
-              matchId={session.matchId}
-              participantCycle={latestParticipantCycle(query.data.events)}
-              blocked={opponentBlocked}
-            />
-          </Suspense>
-          <MatchChatPanel
-            matchId={session.matchId}
-            connected={connectionState === 'SYNCHRONIZED'}
-            messages={chatMessages}
-            error={chatError}
-            onSend={sendChat}
-            onBlockedChange={setOpponentBlocked}
-          />
-        </>
-      )}
-    </main>
+    </DesktopMatchShell>
   )
 }
 

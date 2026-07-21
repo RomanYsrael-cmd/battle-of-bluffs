@@ -10,6 +10,8 @@ Audio and video are optional LiveKit Cloud channels. They never carry game comma
 
 Production media was validated on 2026-07-21 with two isolated browsers against the real frontend and managed LiveKit project. Two-way microphone/camera tracks, local opponent controls, device selection, leave/rejoin, blocking, post-match access, and gameplay independence passed. The Spring backend authorizes short-lived room access only; it does not proxy media packets.
 
+At widths of 1024px and above, formation and active play use a viewport-bound desktop workspace: a compact match/timer toolbar, height-constrained 9×8 board stage, grouped capture rail, and independent media, messenger-chat, and history panels. Panel preferences are local and account/match scoped; tokens, chat contents, device-active state, and hidden opponent ranks are never stored as layout preferences. Below 1024px the stacked responsive layout remains in use.
+
 ## Architecture
 
 - `backend/` — Java 17, Spring Boot 4.1, Spring Security sessions/CSRF, STOMP, JPA, Flyway and PostgreSQL
@@ -97,7 +99,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Playwright retrieves verification messages from Mailpit and covers accounts, abandoned-lobby recovery, cancellation and seat reuse, casual play, ranked rating application, outsider denial, hidden-rank secrecy and inert hostile chat text.
+Playwright retrieves verification messages from Mailpit and covers accounts, abandoned-lobby recovery, cancellation and seat reuse, casual play, ranked rating application, outsider denial, hidden-rank secrecy and inert hostile chat text. Deterministic layout coverage also verifies active play at 1280×720, 1366×768, 1440×900 and 1920×1080, formation at 1366×768, the 1024px breakpoint, fixed session-expiry notifications, and simultaneous media/chat expansion without document scrolling.
 
 ## Development-only API
 

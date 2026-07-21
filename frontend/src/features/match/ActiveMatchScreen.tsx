@@ -5,7 +5,6 @@ import type { CommandResponse, PlayerMatchView } from '../../api/types'
 import { ApiErrorNotice } from '../../components/ApiErrorNotice'
 import type { Position } from '../../game/coordinates'
 import type { MatchSession } from '../../session/session'
-import { EventHistory } from './EventHistory'
 import { MatchBoard } from './MatchBoard'
 import { TerminalDisclosure } from './TerminalDisclosure'
 import { getMatchHistory } from '../../profile/client'
@@ -65,9 +64,8 @@ export function ActiveMatchScreen({
     : mutationError
 
   return (
-    <div className="match-workspace">
-      <section className="board-panel">
-        <div className="section-heading">
+    <section className="board-panel active-board-stage">
+      <div className="section-heading">
           <div>
             <p className="eyebrow">Current player</p>
             <h2>
@@ -79,7 +77,7 @@ export function ActiveMatchScreen({
             </h2>
           </div>
           <div className="status-pill">{view.phase} · version {view.version}</div>
-        </div>
+      </div>
 
         {view.pendingFlagChallenge && (
           <p className="challenge-notice" role="status">
@@ -124,8 +122,6 @@ export function ActiveMatchScreen({
             ratingChange={ratingHistory.data?.ratingChange}
           />
         )}
-      </section>
-      <EventHistory events={view.events} />
-    </div>
+    </section>
   )
 }

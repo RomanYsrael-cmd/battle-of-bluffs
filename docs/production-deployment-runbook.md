@@ -36,9 +36,9 @@ The selected database pool is minimum idle 1 and maximum 8. Exact change-time ba
 6. Install the versioned JAR atomically, start only `gotg-backend.service`, and validate internal health and Flyway.
 7. Add only the three `/bluffs` locations to the existing nginx configuration, run `nginx -t`, reload nginx, and immediately recheck RomanLMS and GOTG.
 8. If media is enabled, configure the dedicated LiveKit Cloud project, server-only backend credentials, public `VITE_LIVEKIT_URL`, and the exact project origins in Vercel CSP as specified in [audio-video.md](audio-video.md). Confirm a missing credential fails closed.
-9. Deploy `frontend/` to its dedicated Vercel project with only public `VITE_*` production configuration.
+9. Deploy `frontend/` to its dedicated Vercel project with only public `VITE_*` production configuration. For frontend-only releases, confirm the merged diff contains no `backend/` or `ops/gotg-deploy-backend` change; the production workflow intentionally skips the backend artifact and service restart in that case.
 10. Attach `bluffs.romanlms.com` using Vercel's reported DNS target and validate DNS, TLS, CSP, CORS, CSRF, cookies, REST, gameplay WebSocket, and optional media behavior.
-11. Run controlled authentication, casual, ranked, persistence, restart, coexistence, and—when enabled—two-browser media isolation smoke tests.
+11. Run controlled authentication, casual, ranked, persistence, restart, coexistence, and—when enabled—two-browser media isolation smoke tests. For desktop-workspace changes, also validate 1366×768 and 1920×1080 at 100% zoom: the document must not scroll, the full board/timers/captures/actions must remain visible, and expanded media/chat must stay inside the utility dock. Recheck the stacked layout below 1024px.
 12. Merge the deployment PR, deploy only the merged main commit, and create the production tag only after complete validation.
 
 ## Health checks
