@@ -44,9 +44,6 @@ export function DesktopMatchShell({
             <span aria-hidden="true">•</span>
             <span>{view.phase}</span>
           </span>
-          <button type="button" className="match-status-exit" onClick={onLeave} aria-label="Return to dashboard">
-            <span aria-hidden="true">←</span>
-          </button>
         </div>
         <MatchTimers view={view} />
         <div className={`connection-state connection-state--${connectionState.toLowerCase()}`} role="status">

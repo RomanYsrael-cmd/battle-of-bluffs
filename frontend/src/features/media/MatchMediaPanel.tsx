@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 import {
   AudioTrack,
   LiveKitRoom,
@@ -36,6 +36,7 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
   const [token, setToken] = useState<string>()
   const [status, setStatus] = useState<MediaStatus>('OFF')
   const [error, setError] = useState('')
+  const floating = useFloatingCameraPanel(`gotg:media-position:${accountId}:${matchId}`)
 
   const leave = () => {
     sessionStorage.removeItem(consentKey)
@@ -75,12 +76,15 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
   }, [])
 
   return (
-    <section className={`media-panel${collapsed ? ' media-panel--collapsed' : ''}`} aria-label="Optional match audio and video">
-      <div className="media-panel__heading">
+    <section ref={floating.panelRef} style={floating.style}
+      className={`media-panel floating-camera-panel${collapsed ? ' media-panel--collapsed' : ''}${floating.dragging ? ' floating-camera-panel--dragging' : ''}`}
+      aria-label="Optional match audio and video">
+      <div className="media-panel__heading" title="Drag camera panel" onPointerDown={floating.onPointerDown}>
         <div>
           <p className="eyebrow">Optional · peer media only</p>
-          <h2>Audio &amp; video</h2>
+          <h2>Camera</h2>
         </div>
+        <span className="media-drag-handle" aria-hidden="true">⠿</span>
         <button type="button" className="button button--ghost" aria-expanded={!collapsed}
           onClick={() => setCollapsed((value) => {
             localStorage.setItem(panelKey, value ? 'open' : 'closed')
@@ -158,6 +162,97 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
       )}
     </section>
   )
+}
+
+function useFloatingCameraPanel(storageKey: string): {
+  panelRef: RefObject<HTMLElement | null>
+  style: CSSProperties | undefined
+  dragging: boolean
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
+} {
+  const panelRef = useRef<HTMLElement>(null)
+  const drag = useRef<{ offsetX: number; offsetY: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null') as { left?: unknown; top?: unknown } | null
+      return saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)
+        ? { left: Number(saved.left), top: Number(saved.top) }
+        : null
+    } catch {
+      return null
+    }
+  })
+
+  useEffect(() => {
+    const move = (event: PointerEvent) => {
+      const panel = panelRef.current
+      if (!drag.current || !panel) return
+      const margin = 8
+      const left = Math.min(
+        Math.max(margin, event.clientX - drag.current.offsetX),
+        Math.max(margin, window.innerWidth - panel.offsetWidth - margin),
+      )
+      const top = Math.min(
+        Math.max(margin, event.clientY - drag.current.offsetY),
+        Math.max(margin, window.innerHeight - panel.offsetHeight - margin),
+      )
+      setPosition({ left, top })
+    }
+    const stop = () => {
+      if (!drag.current) return
+      drag.current = null
+      setDragging(false)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', stop)
+    window.addEventListener('pointercancel', stop)
+    return () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', stop)
+      window.removeEventListener('pointercancel', stop)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (position) localStorage.setItem(storageKey, JSON.stringify(position))
+  }, [position, storageKey])
+
+  useEffect(() => {
+    const constrainToViewport = () => {
+      const panel = panelRef.current
+      if (!panel) return
+      setPosition((current) => {
+        if (!current) return current
+        const margin = 8
+        const left = Math.max(margin, Math.min(current.left, Math.max(margin, window.innerWidth - panel.offsetWidth - margin)))
+        const top = Math.max(margin, Math.min(current.top, Math.max(margin, window.innerHeight - panel.offsetHeight - margin)))
+        return left === current.left && top === current.top ? current : { left, top }
+      })
+    }
+    constrainToViewport()
+    window.addEventListener('resize', constrainToViewport)
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(constrainToViewport)
+    if (panelRef.current) observer?.observe(panelRef.current)
+    return () => {
+      window.removeEventListener('resize', constrainToViewport)
+      observer?.disconnect()
+    }
+  }, [])
+
+  return {
+    panelRef,
+    style: position ? { left: position.left, top: position.top, right: 'auto' } : undefined,
+    dragging,
+    onPointerDown: (event) => {
+      if ((event.target as HTMLElement).closest('button, input, select, textarea, a')) return
+      const rect = panelRef.current?.getBoundingClientRect()
+      if (!rect) return
+      drag.current = { offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top }
+      setDragging(true)
+      event.preventDefault()
+    },
+  }
 }
 
 function ConnectedMedia({ status, setStatus, onLeave }: {

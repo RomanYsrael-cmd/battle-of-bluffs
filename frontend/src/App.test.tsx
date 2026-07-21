@@ -189,12 +189,12 @@ describe('authoritative open-match recovery', () => {
     fireEvent.click(createButton)
 
     await waitFor(() => expect(window.location.pathname).toBe(`/matches/${view.matchId}`))
-    expect(await screen.findByDisplayValue('ABC234')).toBeInTheDocument()
+    expect(await screen.findByText('Deploy your formation')).toBeInTheDocument()
     expect(screen.getByText(/waiting for a second player/i)).toBeInTheDocument()
     expect(loadSession()).toEqual({ matchId: view.matchId, roomCode: 'ABC234' })
     expect(localStorage.length).toBe(0)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back to dashboard' }))
+    fireEvent.click(screen.getByRole('link', { name: 'Play' }))
     expect(await screen.findByRole('heading', { name: 'Current game' })).toBeInTheDocument()
     expect(screen.getByText('ABC234')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cancel room' })).toBeEnabled()
@@ -209,9 +209,9 @@ describe('authoritative open-match recovery', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Create private match' }))
 
     await waitFor(() => expect(window.location.pathname).toBe(`/matches/${view.matchId}`))
-    expect(await screen.findByDisplayValue('ABC234')).toBeInTheDocument()
+    expect(await screen.findByText('Deploy your formation')).toBeInTheDocument()
     initialDiscovery.resolve()
-    fireEvent.click(screen.getByRole('button', { name: 'Back to dashboard' }))
+    fireEvent.click(screen.getByRole('link', { name: 'Play' }))
     expect(await screen.findByRole('heading', { name: 'Current game' })).toBeInTheDocument()
     expect(screen.getByText('ABC234')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cancel room' })).toBeEnabled()
@@ -248,7 +248,7 @@ describe('authoritative open-match recovery', () => {
     await waitFor(() => expect(loadSession()?.matchId).toBe(activity.matchId))
 
     fireEvent.click(screen.getByRole('button', { name: 'Continue game' }))
-    expect(await screen.findByDisplayValue('ABC234')).toBeInTheDocument()
+    expect(await screen.findByText('Deploy your formation')).toBeInTheDocument()
     expect(window.location.pathname).toBe(activity.resumeRoute)
   })
 
@@ -357,9 +357,9 @@ describe('authoritative open-match recovery', () => {
     installApi({ view })
     render(<App />)
     fireEvent.click(await screen.findByRole('button', { name: 'Create private match' }))
-    await screen.findByDisplayValue('ABC234')
+    await screen.findByText('Deploy your formation')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Back to dashboard' }))
+    fireEvent.click(screen.getByRole('link', { name: 'Play' }))
 
     await waitFor(() => expect(window.location.pathname).toBe('/'))
     expect(screen.getByRole('button', { name: 'Create private match' })).toBeInTheDocument()

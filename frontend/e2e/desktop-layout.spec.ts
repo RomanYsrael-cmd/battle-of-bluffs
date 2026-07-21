@@ -97,11 +97,19 @@ for (const viewport of [
       html: document.documentElement.scrollHeight - document.documentElement.clientHeight,
       body: document.body.scrollHeight - document.body.clientHeight,
     }))).toEqual({ html: 0, body: 0 })
-    for (const selector of ['.match-board', '.play-clock', '.captures-rail', '.desktop-utility-dock', '.actions']) {
+    for (const selector of ['.match-board', '.play-clock', '.captures-rail', '.floating-camera-panel', '.chat-panel', '.actions']) {
       await expectInsideViewport(page, selector)
     }
     const board = await page.locator('.match-board').boundingBox()
     expect(board!.width / board!.height).toBeCloseTo(9 / 8, 1)
+    expect(board!.width).toBeGreaterThanOrEqual(viewport.height * .8)
+    const camera = await page.locator('.floating-camera-panel').boundingBox()
+    const chat = await page.locator('.chat-panel').boundingBox()
+    const actions = await page.locator('.actions').boundingBox()
+    expect(board!.x + board!.width).toBeLessThanOrEqual(Math.min(camera!.x, chat!.x) + 1)
+    expect(actions!.x + actions!.width).toBeLessThanOrEqual(board!.x + 1)
+    await expect(page.locator('.account-bar')).toBeHidden()
+    await expect(page.locator('.match-header')).toBeHidden()
   })
 }
 
@@ -113,6 +121,11 @@ test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ p
     await expect(page.getByRole('button', { name })).toBeInViewport()
   }
   await expectInsideViewport(page, '.board')
+  const board = await page.locator('.board').boundingBox()
+  const actions = await page.locator('.formation-workspace .actions').boundingBox()
+  const chat = await page.locator('.chat-panel').boundingBox()
+  expect(actions!.x + actions!.width).toBeLessThanOrEqual(board!.x + 1)
+  expect(board!.x + board!.width).toBeLessThanOrEqual(chat!.x + 1)
   expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
 })
 
@@ -132,25 +145,50 @@ test('session expiration uses a fixed overlay instead of shifting workspace layo
   expect(await notice.evaluate((node) => getComputedStyle(node).position)).toBe('fixed')
 })
 
-test('expanded media and messenger chat share the dock without moving the board', async ({ page }) => {
+test('floating resizable camera and messenger chat never resize the board', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
   await openMockMatch(page, 'ACTIVE')
   const boardBefore = await page.locator('.match-board').boundingBox()
+  const camera = page.locator('.floating-camera-panel')
+  expect(await camera.evaluate((node) => ({
+    position: getComputedStyle(node).position,
+    resize: getComputedStyle(node).resize,
+  }))).toEqual({ position: 'fixed', resize: 'both' })
+
+  const cameraBeforeDrag = await camera.boundingBox()
+  const cameraHeading = await camera.locator('.media-panel__heading').boundingBox()
+  await page.mouse.move(cameraHeading!.x + 80, cameraHeading!.y + 20)
+  await page.mouse.down()
+  await page.mouse.move(cameraHeading!.x - 120, cameraHeading!.y + 90, { steps: 5 })
+  await page.mouse.up()
+  const cameraAfterDrag = await camera.boundingBox()
+  expect(cameraAfterDrag!.x).toBeLessThan(cameraBeforeDrag!.x - 100)
+  expect(cameraAfterDrag!.y).toBeGreaterThan(cameraBeforeDrag!.y + 40)
+
+  await page.mouse.move(
+    cameraAfterDrag!.x + cameraAfterDrag!.width - 2,
+    cameraAfterDrag!.y + cameraAfterDrag!.height - 2,
+  )
+  await page.mouse.down()
+  await page.mouse.move(
+    cameraAfterDrag!.x + cameraAfterDrag!.width + 58,
+    cameraAfterDrag!.y + cameraAfterDrag!.height + 38,
+    { steps: 5 },
+  )
+  await page.mouse.up()
+  const cameraAfterResize = await camera.boundingBox()
+  expect(cameraAfterResize!.width).toBeGreaterThan(cameraAfterDrag!.width + 30)
+  expect(cameraAfterResize!.height).toBeGreaterThan(cameraAfterDrag!.height + 15)
+
   await page.getByRole('button', { name: 'Open media' }).click()
   await page.getByRole('button', { name: 'Open chat' }).click()
   await expect(page.getByRole('button', { name: 'Enable audio/video' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Message' })).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Send' })).toBeInViewport()
   await expectInsideViewport(page, '.match-board')
-  const send = await page.getByRole('button', { name: 'Send' }).boundingBox()
-  const media = await page.locator('.media-panel').boundingBox()
-  const history = await page.locator('.history-drawer').boundingBox()
-  const chat = await page.locator('.chat-panel').boundingBox()
-  expect(media!.y + media!.height).toBeLessThanOrEqual(history!.y)
-  expect(history!.y + history!.height).toBeLessThanOrEqual(chat!.y)
-  expect(send!.y + send!.height).toBeLessThanOrEqual(page.viewportSize()!.height)
   const boardAfter = await page.locator('.match-board').boundingBox()
   expect(boardAfter).toEqual(boardBefore)
   await page.getByRole('button', { name: 'Collapse' }).last().click()
+  await expect(page.getByRole('button', { name: 'Type a message…' })).toBeVisible()
   await expect(page.locator('.match-status-turn')).toContainText('You to move')
 })
