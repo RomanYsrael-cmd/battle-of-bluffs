@@ -186,7 +186,7 @@ test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ p
   const deadline = await page.locator('.setup-clock').boundingBox()
   const connection = await page.locator('.connection-state').boundingBox()
   expect(actions!.x).toBeGreaterThanOrEqual(deadline!.x + deadline!.width)
-  expect(actions!.x + actions!.width).toBeLessThanOrEqual(connection!.x + 1)
+  expect(actions!.x + actions!.width).toBeLessThanOrEqual(connection!.x - 8)
   expect(Math.abs((actions!.y + actions!.height / 2) - (deadline!.y + deadline!.height / 2)))
     .toBeLessThanOrEqual(8)
   expect(board).toEqual(boardBefore)
