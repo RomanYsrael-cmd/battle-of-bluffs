@@ -92,7 +92,12 @@ for (const viewport of [
     await page.setViewportSize(viewport)
     await openMockMatch(page, 'ACTIVE')
     await expect(page.getByRole('button', { name: 'Open chat' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Open media' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Set up media', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Turn microphone on' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Turn camera on' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Open media settings/ })).toBeVisible()
+    await expect(page.locator('.board-cell__coordinate')).toHaveCount(0)
+    await expect(page.locator('.board-rank-labels span')).toHaveCount(8)
     expect(await page.evaluate(() => ({
       html: document.documentElement.scrollHeight - document.documentElement.clientHeight,
       body: document.body.scrollHeight - document.body.clientHeight,
@@ -117,7 +122,7 @@ test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ p
   await page.setViewportSize({ width: 1366, height: 768 })
   await openMockMatch(page, 'FORMATION')
   await expect(page.locator('.tray-grid .piece')).toHaveCount(21)
-  for (const name of ['Submit formation', 'Lock formation', 'Reset formation', 'Open chat', 'Open media']) {
+  for (const name of ['Submit formation', 'Lock formation', 'Reset formation', 'Open chat', 'Set up media']) {
     await expect(page.getByRole('button', { name })).toBeInViewport()
   }
   await expectInsideViewport(page, '.board')
@@ -180,7 +185,7 @@ test('floating resizable camera and messenger chat never resize the board', asyn
   expect(cameraAfterResize!.width).toBeGreaterThan(cameraAfterDrag!.width + 30)
   expect(cameraAfterResize!.height).toBeGreaterThan(cameraAfterDrag!.height + 15)
 
-  await page.getByRole('button', { name: 'Open media' }).click()
+  await page.getByRole('button', { name: 'Set up media', exact: true }).click()
   await page.getByRole('button', { name: 'Open chat' }).click()
   await expect(page.getByRole('button', { name: 'Enable audio/video' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Message' })).toBeInViewport()

@@ -230,14 +230,21 @@ test.describe.serial('complete local platform', () => {
       await createAndJoinPrivateRoom(firstPage, secondPage)
 
       for (const page of [firstPage, secondPage]) {
-        await page.getByRole('button', { name: 'Open media' }).click()
+        await page.getByRole('button', { name: 'Set up media', exact: true }).click()
         await expect(page.getByText('Media off')).toBeVisible()
         await page.getByRole('button', { name: 'Enable audio/video' }).click()
         await expect(page.getByText('Media connected')).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('button', { name: 'Unmute mic' })).toBeVisible()
+        await expect(page.getByRole('button', { name: 'Unmute microphone' })).toBeVisible()
         await expect(page.getByRole('button', { name: 'Turn camera on' })).toBeVisible()
-        await page.getByRole('button', { name: 'Unmute mic' }).click()
+        await expect(page.getByLabel('Microphone')).toBeVisible()
+        await expect(page.getByLabel('Camera')).toBeVisible()
+        await expect(page.getByLabel('Speaker')).toBeVisible()
+        await expect(page.getByLabel('Opponent volume')).toBeVisible()
+        await page.getByRole('button', { name: 'Unmute microphone' }).click()
         await page.getByRole('button', { name: 'Turn camera on' }).click()
+        await page.getByRole('button', { name: 'Close settings' }).click()
+        await expect(page.getByRole('button', { name: /Open media settings/ })).toBeVisible()
+        await page.getByRole('button', { name: /Open media settings/ }).click()
       }
 
       await expect(firstPage.locator('.media-video-frame video')).toHaveCount(2, { timeout: 30_000 })
@@ -253,7 +260,7 @@ test.describe.serial('complete local platform', () => {
       await firstPage.reload()
       await expect(firstPage.getByText('Live updates synchronized')).toBeVisible()
       await expect(firstPage.getByText('Media connected')).toBeVisible({ timeout: 30_000 })
-      await expect(firstPage.getByRole('button', { name: 'Unmute mic' })).toBeVisible()
+      await expect(firstPage.getByRole('button', { name: 'Unmute microphone' })).toBeVisible()
       await expect(firstPage.getByRole('button', { name: 'Turn camera on' })).toBeVisible()
 
       await prepareBothArmies(firstPage, secondPage)
