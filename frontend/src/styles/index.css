@@ -338,9 +338,11 @@ h2 { font-size: 1.65rem; }
   .desktop-utility-dock .media-panel, .desktop-utility-dock .chat-panel { margin: 0; padding: .65rem; border-radius: .75rem; }
   .desktop-utility-dock h2 { font-size: 1rem; }
   .desktop-utility-dock .eyebrow { margin-bottom: .15rem; font-size: .58rem; }
-  .chat-panel:not(.chat-panel--collapsed) { display: flex; flex: 1 1 16rem; flex-direction: column; min-height: 0; }
-  .chat-history { flex: 1; min-height: 5rem; max-height: none; }
-  .chat-compose textarea { min-height: 2.8rem; max-height: 5rem; resize: none; }
+  .chat-panel:not(.chat-panel--collapsed) { display: flex; flex: 1 1 14rem; flex-direction: column; min-height: 0; overflow: hidden; }
+  .chat-panel__heading, .chat-tools, .chat-compose { flex: 0 0 auto; }
+  .chat-history { flex: 1 1 2.5rem; min-height: 2.5rem; max-height: none; }
+  .chat-compose { margin-top: .4rem; }
+  .chat-compose textarea { min-height: 2.35rem; max-height: 4rem; resize: none; }
   .media-panel:not(.media-panel--collapsed) { flex: 0 1 auto; max-height: 47%; overflow-y: auto; }
   .media-consent { margin: .45rem 0; font-size: .72rem; }
   .media-room { gap: .4rem; margin-top: .4rem; }

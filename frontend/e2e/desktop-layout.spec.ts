@@ -20,7 +20,11 @@ const baseView = (phase: 'FORMATION' | 'ACTIVE') => ({
   opponentPieces: phase === 'FORMATION' ? [] : ranks.slice(0, 20).map((_rank, index) => ({
     id: `opponent-${index}`, position: { row: 5 + Math.floor(index / 9), column: index % 9 },
   })),
-  events: [], pendingFlagChallenge: null, terminalResult: null, postMatchPieces: [],
+  events: phase === 'ACTIVE' ? Array.from({ length: 5 }, (_, index) => ({
+    sequence: index + 1, type: 'MOVE_APPLIED', actor: index % 2 ? 'PLAYER_TWO' : 'PLAYER_ONE',
+    source: { row: 2, column: index }, destination: { row: 3, column: index },
+    removedPieceIds: [], ownBattleOutcome: null, terminalResult: null,
+  })) : [], pendingFlagChallenge: null, terminalResult: null, postMatchPieces: [],
   timer: {
     playerOneRemainingMillis: 894_000, playerTwoRemainingMillis: 900_000,
     formationDeadline: phase === 'FORMATION' ? '2099-07-21T10:10:00Z' : null,
@@ -136,7 +140,11 @@ test('expanded media and messenger chat share the dock without moving the board'
   await page.getByRole('button', { name: 'Open chat' }).click()
   await expect(page.getByRole('button', { name: 'Enable audio/video' })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Message' })).toBeInViewport()
+  await expect(page.getByRole('button', { name: 'Send' })).toBeInViewport()
   await expectInsideViewport(page, '.match-board')
+  const send = await page.getByRole('button', { name: 'Send' }).boundingBox()
+  const history = await page.locator('.history-drawer').boundingBox()
+  expect(send!.y + send!.height).toBeLessThanOrEqual(history!.y)
   const boardAfter = await page.locator('.match-board').boundingBox()
   expect(boardAfter).toEqual(boardBefore)
   await page.getByRole('button', { name: 'Collapse' }).last().click()
