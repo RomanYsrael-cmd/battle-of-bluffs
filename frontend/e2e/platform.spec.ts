@@ -83,6 +83,7 @@ test.describe.serial('complete local platform', () => {
       await secondPage.goto('/')
       await secondPage.getByLabel('Room code').fill(reusableRoomCode)
       await secondPage.getByRole('button', { name: 'Join match' }).click()
+      await expect(secondPage.getByText('Side 2')).toBeVisible()
       await secondPage.goto('/')
       secondPage.once('dialog', (dialog) => dialog.accept())
       await secondPage.getByRole('button', { name: 'Leave lobby' }).click()
