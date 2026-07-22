@@ -15,6 +15,7 @@ import { ConnectionState, RemoteTrackPublication, Track, VideoPresets } from 'li
 import { requestMediaToken } from '../../api/client'
 import { mediaServerUrl } from '../../config/runtime'
 import { mediaSessionKey } from './mediaSession'
+import { useMobileMatchNavigation } from '../workspace/DesktopMatchShell'
 
 interface MatchMediaPanelProps {
   accountId: string
@@ -27,6 +28,7 @@ type MediaStatus = 'OFF' | 'CONNECTING' | 'CONNECTED' | 'RECONNECTING' | 'ERROR'
 type RequestedSource = 'microphone' | 'camera'
 
 export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked }: MatchMediaPanelProps) {
+  const mobileNavigation = useMobileMatchNavigation()
   const consentKey = mediaSessionKey(accountId, matchId, participantCycle)
   const panelKey = `gotg:media-panel:${accountId}:${matchId}`
   const [resumeRequested] = useState(() => sessionStorage.getItem(consentKey) === 'true')
@@ -39,6 +41,9 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
   const [error, setError] = useState('')
   const [requestedSource, setRequestedSource] = useState<RequestedSource>()
   const floating = useFloatingCameraPanel(`gotg:media-position:${accountId}:${matchId}`)
+  const panelCollapsed = mobileNavigation.isMobile
+    ? mobileNavigation.activeTab === 'board'
+    : collapsed
 
   const leave = () => {
     sessionStorage.removeItem(consentKey)
@@ -85,13 +90,17 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
   })
 
   const openSettings = () => {
+    if (mobileNavigation.isMobile) {
+      mobileNavigation.selectTab('camera')
+      return
+    }
     localStorage.setItem(panelKey, 'open')
     setCollapsed(false)
   }
 
   return (
     <section ref={floating.panelRef} style={floating.style}
-      className={`media-panel floating-camera-panel${collapsed ? ' media-panel--collapsed' : ''}${floating.dragging ? ' floating-camera-panel--dragging' : ''}`}
+      className={`media-panel floating-camera-panel${panelCollapsed ? ' media-panel--collapsed' : ''}${floating.dragging ? ' floating-camera-panel--dragging' : ''}`}
       aria-label="Optional match audio and video">
       <div className="media-panel__heading" title="Drag camera panel" onPointerDown={floating.onPointerDown}>
         <div>
@@ -99,12 +108,12 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
           <h2>Camera</h2>
         </div>
         <span className="media-drag-handle" aria-hidden="true">⠿</span>
-        <button type="button" className="button button--ghost" aria-expanded={!collapsed}
+        <button type="button" className="button button--ghost" aria-expanded={!panelCollapsed}
           onClick={togglePanel}>
-          {collapsed ? token ? 'Settings' : 'Set up media' : token ? 'Close settings' : 'Collapse'}
+          {panelCollapsed ? token ? 'Settings' : 'Set up media' : token ? 'Close settings' : 'Collapse'}
         </button>
       </div>
-      {!token && collapsed && (
+      {!token && panelCollapsed && (
         <div className="media-collapsed-preview">
           <div className="media-camera-off" aria-hidden="true">
             <span>▱</span>
@@ -120,7 +129,7 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
           </div>
         </div>
       )}
-      {!token && !collapsed && (
+      {!token && !panelCollapsed && (
         <>
           <p className="media-consent">
             Microphone and camera start off. Enabling media connects only the two match participants;
@@ -180,8 +189,8 @@ export function MatchMediaPanel({ accountId, matchId, participantCycle, blocked 
             status={status}
             setStatus={setStatus}
             onLeave={leave}
-            settingsOpen={!collapsed}
-            onToggleSettings={togglePanel}
+            settingsOpen={!panelCollapsed}
+            onToggleSettings={mobileNavigation.isMobile ? openSettings : togglePanel}
             requestedSource={requestedSource}
             onRequestedSourceHandled={() => setRequestedSource(undefined)}
           />
