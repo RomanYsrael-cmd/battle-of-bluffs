@@ -7,6 +7,7 @@ import {
   unblockOpponent,
 } from '../../api/client'
 import type { ChatError, ChatMessage, ReportCategory } from '../../api/types'
+import { useMobileMatchNavigation } from '../workspace/DesktopMatchShell'
 
 interface MatchChatPanelProps {
   accountId: string
@@ -35,6 +36,7 @@ export function MatchChatPanel({
   onSend,
   onBlockedChange,
 }: MatchChatPanelProps) {
+  const mobileNavigation = useMobileMatchNavigation()
   const panelKey = `gotg:chat-panel:${accountId}:${matchId}`
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(panelKey) !== 'open')
   const [unread, setUnread] = useState(0)
@@ -46,6 +48,9 @@ export function MatchChatPanel({
   const [reportComment, setReportComment] = useState('')
   const muteKey = `gotg:chat-muted:${accountId}:${matchId}`
   const [muted, setMuted] = useState(() => window.localStorage.getItem(muteKey) === 'true')
+  const panelCollapsed = collapsed && !(mobileNavigation.isMobile
+    && mobileNavigation.activeTab === 'chat'
+    && mobileNavigation.communicationTab === 'chat')
   const latestSequence = useRef(0)
   const messagesInitialized = useRef(false)
   const historyEnd = useRef<HTMLDivElement | null>(null)
@@ -91,19 +96,19 @@ export function MatchChatPanel({
     const newOpponentMessages = messages.filter((message) =>
       message.sequence > latestSequence.current && !message.ownMessage).length
     if (messagesInitialized.current) {
-      if (collapsed) setUnread((current) => current + newOpponentMessages)
+      if (panelCollapsed) setUnread((current) => current + newOpponentMessages)
       else if (!nearBottom.current) setNewMessagesBelow((current) => current + newOpponentMessages)
     }
     latestSequence.current = Math.max(
       latestSequence.current,
       ...messages.map((message) => message.sequence),
     )
-    if (!collapsed && nearBottom.current && typeof historyEnd.current?.scrollIntoView === 'function') {
+    if (!panelCollapsed && nearBottom.current && typeof historyEnd.current?.scrollIntoView === 'function') {
       historyEnd.current.scrollIntoView({ block: 'nearest' })
       setNewMessagesBelow(0)
     }
     messagesInitialized.current = true
-  }, [collapsed, messages])
+  }, [messages, panelCollapsed])
 
   useEffect(() => {
     if (messages.at(-1)?.ownMessage) setSending(false)
@@ -120,7 +125,7 @@ export function MatchChatPanel({
   }
 
   return (
-    <section className={`chat-panel${collapsed ? ' chat-panel--collapsed' : ''}`} aria-label="Match chat">
+    <section className={`chat-panel${panelCollapsed ? ' chat-panel--collapsed' : ''}`} aria-label="Match chat">
       <div className="chat-panel__heading">
         <div>
           <p className="eyebrow">Private to participants</p>
@@ -129,7 +134,7 @@ export function MatchChatPanel({
         <button
           type="button"
           className="button button--ghost"
-          aria-expanded={!collapsed}
+          aria-expanded={!panelCollapsed}
           onClick={() => {
             setCollapsed((current) => {
               localStorage.setItem(panelKey, current ? 'open' : 'closed')
@@ -138,11 +143,11 @@ export function MatchChatPanel({
             setUnread(0)
           }}
         >
-          {collapsed ? `Open chat${unread ? ` (${unread} unread)` : ''}` : 'Collapse'}
+          {panelCollapsed ? `Open chat${unread ? ` (${unread} unread)` : ''}` : 'Collapse'}
         </button>
       </div>
 
-      {collapsed && (
+      {panelCollapsed && (
         <button type="button" className="chat-quick-open" onClick={() => {
           localStorage.setItem(panelKey, 'open')
           setCollapsed(false)
@@ -152,7 +157,7 @@ export function MatchChatPanel({
         </button>
       )}
 
-      {!collapsed && (
+      {!panelCollapsed && (
         <>
           <div className="chat-tools">
             <span>{moderation.data?.opponentDisplayName ?? 'Opponent'}</span>

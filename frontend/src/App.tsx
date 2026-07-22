@@ -199,32 +199,34 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
     )
   }
 
-  const utilityDock = query.data.playerTwoOccupied ? (
-    <>
-      <Suspense fallback={<p role="status">Loading optional media controls…</p>}>
-        <MatchMediaPanel
-          key={`media-${latestParticipantCycle(query.data.events)}`}
-          accountId={query.data.requestingPlayerId}
-          matchId={session.matchId}
-          participantCycle={latestParticipantCycle(query.data.events)}
-          blocked={opponentBlocked}
-        />
-      </Suspense>
-      <MatchChatPanel
+  const mediaPanel = query.data.playerTwoOccupied ? (
+    <Suspense fallback={<p role="status">Loading optional media controls…</p>}>
+      <MatchMediaPanel
+        key={`media-${latestParticipantCycle(query.data.events)}`}
         accountId={query.data.requestingPlayerId}
         matchId={session.matchId}
-        connected={connectionState === 'SYNCHRONIZED'}
-        messages={chatMessages}
-        error={chatError}
-        onSend={sendChat}
-        onBlockedChange={setOpponentBlocked}
+        participantCycle={latestParticipantCycle(query.data.events)}
+        blocked={opponentBlocked}
       />
-      <MatchHistoryDrawer
-        accountId={query.data.requestingPlayerId}
-        matchId={session.matchId}
-        events={query.data.events}
-      />
-    </>
+    </Suspense>
+  ) : undefined
+  const chatPanel = query.data.playerTwoOccupied ? (
+    <MatchChatPanel
+      accountId={query.data.requestingPlayerId}
+      matchId={session.matchId}
+      connected={connectionState === 'SYNCHRONIZED'}
+      messages={chatMessages}
+      error={chatError}
+      onSend={sendChat}
+      onBlockedChange={setOpponentBlocked}
+    />
+  ) : undefined
+  const historyPanel = query.data.playerTwoOccupied ? (
+    <MatchHistoryDrawer
+      accountId={query.data.requestingPlayerId}
+      matchId={session.matchId}
+      events={query.data.events}
+    />
   ) : undefined
 
   return (
@@ -235,7 +237,9 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
       syncMessage={syncMessage}
       onLeave={onLeave}
       captures={query.data.phase === 'FORMATION' ? undefined : <CapturedPiecesRail view={query.data} />}
-      utilityDock={utilityDock}
+      media={mediaPanel}
+      chat={chatPanel}
+      history={historyPanel}
     >
       {query.data.phase === 'FORMATION' ? (
         <FormationScreen

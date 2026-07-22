@@ -1,9 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { matchView } from '../../test-fixtures'
 import { CapturedPiecesRail } from './CapturedPiecesRail'
 import { DesktopMatchShell } from './DesktopMatchShell'
 import { MatchHistoryDrawer } from './MatchHistoryDrawer'
+
+afterEach(() => vi.unstubAllGlobals())
 
 describe('desktop match workspace', () => {
   it('keeps board, timers, captures and utility controls in the active shell', () => {
@@ -22,7 +24,7 @@ describe('desktop match workspace', () => {
       <DesktopMatchShell view={view} connectionState="SYNCHRONIZED"
         connectionLabel="Live updates synchronized" syncMessage="" onLeave={vi.fn()}
         captures={<CapturedPiecesRail view={view} />}
-        utilityDock={<><button>Open media</button><button>Open chat</button></>}>
+        media={<button>Open media</button>} chat={<button>Open chat</button>}>
         <div role="grid" aria-label="Match board" />
       </DesktopMatchShell>,
     )
@@ -31,6 +33,45 @@ describe('desktop match workspace', () => {
     expect(screen.getByLabelText('Authoritative match timing')).toBeInTheDocument()
     expect(screen.getByLabelText('Captured pieces')).toBeInTheDocument()
     expect(screen.getByLabelText('Match communication and history')).toBeInTheDocument()
+  })
+
+  it('switches mobile board, eliminated pieces, camera, chat, and game-info views without unmounting media', () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
+    const view = matchView({ phase: 'ACTIVE', playerTwoOccupied: true })
+    render(
+      <DesktopMatchShell view={view} connectionState="SYNCHRONIZED"
+        connectionLabel="Live updates synchronized" syncMessage="" onLeave={vi.fn()}
+        captures={<div aria-label="Eliminated pieces view">Lost pieces</div>}
+        media={<div aria-label="Live camera view">Live video</div>}
+        chat={<div aria-label="Expanded chat view">Messages</div>}
+        history={<div aria-label="Game information view">History</div>}>
+        <div role="grid" aria-label="Mobile match board" />
+      </DesktopMatchShell>,
+    )
+
+    const board = screen.getByRole('grid', { name: 'Mobile match board' })
+    const media = screen.getByLabelText('Live camera view')
+    expect(board).toBeVisible()
+    expect(media).toBeVisible()
+
+    fireEvent.click(screen.getByRole('button', { name: /pieces/i }))
+    expect(screen.getByLabelText('Eliminated pieces view')).toBeVisible()
+    expect(board).not.toBeVisible()
+    expect(media).not.toBeVisible()
+
+    fireEvent.click(screen.getByRole('button', { name: /camera/i }))
+    expect(media).toBeVisible()
+    expect(screen.getByText('Live video')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /^chat$/i }))
+    expect(screen.getByLabelText('Expanded chat view')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: /game info/i }))
+    expect(screen.getByLabelText('Game information view')).toBeVisible()
+    expect(media).toBeInTheDocument()
   })
 
   it('shows grouped own losses without the captured-opponent panel', () => {

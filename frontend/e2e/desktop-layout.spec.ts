@@ -258,11 +258,12 @@ test('formation board stays inside a desktop browser viewport with tall browser 
   expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
 })
 
-test('stacked fallback activates immediately below the 1024px desktop breakpoint', async ({ page }) => {
+test('mobile tab layout activates immediately below the 1024px desktop breakpoint', async ({ page }) => {
   await page.setViewportSize({ width: 1023, height: 900 })
   await openMockMatch(page, 'ACTIVE')
   expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe('hidden')
-  expect(await page.locator('.desktop-match-workspace').evaluate((node) => getComputedStyle(node).display)).toBe('grid')
+  expect(await page.locator('.desktop-match-workspace').evaluate((node) => getComputedStyle(node).display)).toBe('block')
+  await expect(page.getByRole('navigation', { name: 'Match views' })).toBeVisible()
 })
 
 test('session expiration uses a fixed overlay instead of shifting workspace layout', async ({ page }) => {
@@ -321,4 +322,47 @@ test('floating resizable camera and messenger chat never resize the board', asyn
   await page.getByRole('button', { name: 'Collapse' }).last().click()
   await expect(page.getByRole('button', { name: 'Type a message…' })).toBeVisible()
   await expect(page.locator('.match-status-turn')).toContainText('You to move')
+})
+
+test('mobile match uses persistent board, pieces, camera, and chat tabs', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openMockMatch(page, 'ACTIVE')
+
+  const navigation = page.getByRole('navigation', { name: 'Match views' })
+  const board = page.locator('.match-primary-stage')
+  const pieces = page.locator('.mobile-tab-panel--pieces')
+  const camera = page.locator('.mobile-tab-panel--camera')
+  const communication = page.locator('.mobile-tab-panel--communication')
+  await expect(navigation).toBeVisible()
+  await expect(board).toBeVisible()
+  await expect(pieces).toBeHidden()
+  await expect(camera).toBeVisible()
+  await expect(communication).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Turn microphone on' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Turn camera on' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Open media settings/ })).toBeVisible()
+
+  await navigation.getByRole('button', { name: 'Pieces' }).click()
+  await expect(pieces).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Your lost pieces' })).toBeVisible()
+  await expect(board).toBeHidden()
+
+  await navigation.getByRole('button', { name: 'Camera' }).click()
+  await expect(camera).toBeVisible()
+  await expect(page.getByLabel('Optional match audio and video')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Enable audio/video' })).toBeVisible()
+
+  await navigation.getByRole('button', { name: 'Chat' }).click()
+  await expect(communication).toBeVisible()
+  await expect(page.getByLabel('Chat messages')).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Message' })).toBeVisible()
+  await page.getByRole('button', { name: 'Game info' }).click()
+  await expect(page.getByLabel('Match history panel')).toBeVisible()
+  await expect(page.locator('.event-list')).toBeVisible()
+
+  await navigation.getByRole('button', { name: 'Board' }).click()
+  await expect(board).toBeVisible()
+  await expect(camera).toHaveCount(1)
+  await expect(camera).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Turn microphone on' })).toBeVisible()
 })
