@@ -74,6 +74,27 @@ async function openMockMatch(page: Page, phase: 'FORMATION' | 'ACTIVE' | 'TERMIN
   await expect(page.locator('.match-app-shell'), browserErrors.join('\n')).toBeVisible()
 }
 
+async function openMockDashboard(page: Page) {
+  await page.route('**/api/**', async (route) => {
+    const pathname = new URL(route.request().url()).pathname
+    if (!pathname.startsWith('/api/')) return route.continue()
+    if (pathname === '/api/auth/me') return route.fulfill({ json: {
+      id: 'desktop-account', username: 'desktop', displayName: 'Desktop General',
+      status: 'ACTIVE', emailVerified: true,
+    } })
+    if (pathname === '/api/matches/current') return route.fulfill({ json: {
+      activities: [], multipleOpenMatches: false,
+    } })
+    if (pathname === '/api/matchmaking/status') return route.fulfill({ json: {
+      state: 'IDLE', queuedAt: null, elapsedSeconds: 0, searchRange: 200,
+      rating: 1_200, matchId: null,
+    } })
+    return route.fulfill({ status: 404, json: { code: 'NOT_FOUND', message: 'Mock route unavailable' } })
+  })
+  await page.goto('/')
+  await expect(page.locator('.home-screen')).toBeVisible()
+}
+
 async function expectInsideViewport(page: Page, selector: string) {
   const box = await page.locator(selector).first().boundingBox()
   expect(box, `${selector} should have a bounding box`).not.toBeNull()
@@ -82,6 +103,29 @@ async function expectInsideViewport(page: Page, selector: string) {
   expect(box!.y).toBeGreaterThanOrEqual(-1)
   expect(box!.x + box!.width).toBeLessThanOrEqual(viewport.width + 1)
   expect(box!.y + box!.height, `${selector} should end inside the viewport`).toBeLessThanOrEqual(viewport.height + 1)
+}
+
+for (const viewport of [
+  { width: 1024, height: 720 },
+  { width: 1366, height: 768 },
+  { width: 1440, height: 900 },
+  { width: 1920, height: 1080 },
+]) {
+  test(`desktop dashboard scales to fit ${viewport.width}x${viewport.height} without scrolling`, async ({ page }) => {
+    await page.setViewportSize(viewport)
+    await openMockDashboard(page)
+
+    await expect(page.getByRole('heading', { name: 'Every move is a bluff.' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Create private match' })).toBeInViewport()
+    await expect(page.getByRole('heading', { name: 'Join match' })).toBeInViewport()
+    await expect(page.getByRole('heading', { name: 'Ranked matchmaking' })).toBeInViewport()
+    expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
+    expect(await page.evaluate(() => document.body.scrollHeight - document.body.clientHeight)).toBe(0)
+    expect(await page.locator('.home-actions').evaluate((node) => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(3)
+    for (const selector of ['.account-bar', '.hero--home', '.entry-card']) {
+      await expectInsideViewport(page, selector)
+    }
+  })
 }
 
 for (const viewport of [
