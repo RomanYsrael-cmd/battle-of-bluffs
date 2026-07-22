@@ -90,7 +90,7 @@ for (const viewport of [
   { width: 1440, height: 900 },
   { width: 1920, height: 1080 },
 ]) {
-  test(`active workspace keeps a large width-based board at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+  test(`active workspace scales to fit ${viewport.width}x${viewport.height} without scrolling`, async ({ page }) => {
     await page.setViewportSize(viewport)
     await openMockMatch(page, 'ACTIVE')
     await expect(page.getByRole('button', { name: 'Open chat' })).toBeVisible()
@@ -103,6 +103,7 @@ for (const viewport of [
     await expect(page.locator('.board-rank-labels span').first()).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Your lost pieces' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Captured by you' })).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
     for (const selector of ['.play-clock', '.floating-camera-panel', '.chat-panel', '.actions']) {
       await expectInsideViewport(page, selector)
     }
@@ -110,7 +111,7 @@ for (const viewport of [
     expect(board!.x).toBeGreaterThanOrEqual(0)
     expect(board!.x + board!.width).toBeLessThanOrEqual(viewport.width + 1)
     expect(board!.width / board!.height).toBeCloseTo(9 / 8, 1)
-    expect(board!.width).toBeGreaterThanOrEqual(Math.min(736, viewport.width * .55) - 1)
+    expect(board!.width).toBeCloseTo(Math.min(928, viewport.width * .55, (viewport.height - 112) * 1.125), 0)
     const camera = await page.locator('.floating-camera-panel').boundingBox()
     const chat = await page.locator('.chat-panel').boundingBox()
     const actions = await page.locator('.actions').boundingBox()
@@ -124,7 +125,7 @@ for (const viewport of [
   })
 }
 
-test('terminal status stays visible while the complete board remains full size at 1366x768', async ({ page }) => {
+test('terminal status and complete board scale to fit 1366x768 without scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
   await openMockMatch(page, 'TERMINAL')
 
@@ -133,14 +134,13 @@ test('terminal status stays visible while the complete board remains full size a
   const board = await page.locator('.match-board').boundingBox()
   expect(board!.x).toBeGreaterThanOrEqual(0)
   expect(board!.x + board!.width).toBeLessThanOrEqual(1367)
-  expect(board!.width).toBeGreaterThanOrEqual(750)
+  expect(board!.width).toBeGreaterThanOrEqual(730)
   const status = await page.locator('.match-status-bar').boundingBox()
   expect(status!.height).toBeLessThanOrEqual(90)
   await expect(page.locator('.board-rank-labels span').first()).toBeVisible()
   await expect(page.getByRole('button', { name: 'Back to dashboard' })).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Resign match' })).toBeInViewport()
-  expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight))
-    .toBeGreaterThan(0)
+  expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
 })
 
 test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ page }) => {
@@ -148,6 +148,8 @@ test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ p
   await openMockMatch(page, 'FORMATION')
   await expect(page.locator('.tray-grid .piece')).toHaveCount(21)
   const boardBefore = await page.locator('.board').boundingBox()
+  const gridRowsBefore = await page.locator('.board').evaluate((node) => getComputedStyle(node).gridTemplateRows)
+  expect(gridRowsBefore.split(' ')).toHaveLength(8)
   const rowOrderBefore = await page.locator('.board-rank-labels span').allTextContents()
   const cellOrderBefore = await page.locator('.board-cell').evaluateAll((cells) => [
     cells[0]?.getAttribute('data-position'),
@@ -166,6 +168,9 @@ test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ p
   await fiveStar.dragTo(firstCell)
   await expect(page.locator('.tray-grid .piece')).toHaveCount(20)
   await expect(firstCell.getByRole('button', { name: 'Five-Star General' })).toBeVisible()
+  expect(await page.locator('.board').boundingBox()).toEqual(boardBefore)
+  expect(await page.locator('.board').evaluate((node) => getComputedStyle(node).gridTemplateRows))
+    .toBe(gridRowsBefore)
   expect(await page.locator('.board-rank-labels span').allTextContents()).toEqual(rowOrderBefore)
   expect(await page.locator('.board-cell').evaluateAll((cells) => [
     cells[0]?.getAttribute('data-position'),
@@ -207,7 +212,7 @@ test('formation board, 21-piece tray, actions and dock fit 1366x768', async ({ p
   expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
 })
 
-test('formation board keeps its desktop size when browser chrome reduces viewport height', async ({ page }) => {
+test('formation board scales to reduced browser height without content-driven resizing or scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
   await openMockMatch(page, 'FORMATION')
   const fullHeightBoard = await page.locator('.board').boundingBox()
@@ -215,13 +220,12 @@ test('formation board keeps its desktop size when browser chrome reduces viewpor
   await page.setViewportSize({ width: 1366, height: 640 })
   const shortHeightBoard = await page.locator('.board').boundingBox()
 
-  expect(shortHeightBoard!.width).toBeCloseTo(fullHeightBoard!.width, 0)
-  expect(shortHeightBoard!.height).toBeCloseTo(fullHeightBoard!.height, 0)
-  expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight))
-    .toBeGreaterThan(0)
+  expect(shortHeightBoard!.width).toBeLessThan(fullHeightBoard!.width)
+  expect(shortHeightBoard!.height).toBeLessThan(fullHeightBoard!.height)
+  expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
 })
 
-test('active board keeps its desktop size when browser chrome reduces viewport height', async ({ page }) => {
+test('active board scales to reduced browser height without scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 })
   await openMockMatch(page, 'ACTIVE')
   const fullHeightBoard = await page.locator('.match-board').boundingBox()
@@ -229,10 +233,9 @@ test('active board keeps its desktop size when browser chrome reduces viewport h
   await page.setViewportSize({ width: 1366, height: 640 })
   const shortHeightBoard = await page.locator('.match-board').boundingBox()
 
-  expect(shortHeightBoard!.width).toBeCloseTo(fullHeightBoard!.width, 0)
-  expect(shortHeightBoard!.height).toBeCloseTo(fullHeightBoard!.height, 0)
-  expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight))
-    .toBeGreaterThan(0)
+  expect(shortHeightBoard!.width).toBeLessThan(fullHeightBoard!.width)
+  expect(shortHeightBoard!.height).toBeLessThan(fullHeightBoard!.height)
+  expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
 })
 
 test('stacked fallback activates immediately below the 1024px desktop breakpoint', async ({ page }) => {
