@@ -110,8 +110,11 @@ for (const viewport of [
     const board = await page.locator('.match-board').boundingBox()
     expect(board!.x).toBeGreaterThanOrEqual(0)
     expect(board!.x + board!.width).toBeLessThanOrEqual(viewport.width + 1)
+    expect(board!.y + board!.height).toBeLessThanOrEqual(viewport.height + 1)
     expect(board!.width / board!.height).toBeCloseTo(9 / 8, 1)
-    expect(board!.width).toBeCloseTo(Math.min(928, viewport.width * .55, (viewport.height - 112) * 1.125), 0)
+    const stage = await page.locator('.active-board-stage').boundingBox()
+    expect(board!.width).toBeLessThanOrEqual(Math.min(928, viewport.width * .55, (stage!.height - 32) * 1.125))
+    expect(board!.width).toBeGreaterThanOrEqual(Math.min(928, viewport.width * .55, (stage!.height - 64) * 1.125))
     const camera = await page.locator('.floating-camera-panel').boundingBox()
     const chat = await page.locator('.chat-panel').boundingBox()
     const actions = await page.locator('.actions').boundingBox()
@@ -134,7 +137,7 @@ test('terminal status and complete board scale to fit 1366x768 without scrolling
   const board = await page.locator('.match-board').boundingBox()
   expect(board!.x).toBeGreaterThanOrEqual(0)
   expect(board!.x + board!.width).toBeLessThanOrEqual(1367)
-  expect(board!.width).toBeGreaterThanOrEqual(730)
+  expect(board!.width).toBeGreaterThanOrEqual(680)
   const status = await page.locator('.match-status-bar').boundingBox()
   expect(status!.height).toBeLessThanOrEqual(90)
   await expect(page.locator('.board-rank-labels span').first()).toBeVisible()
@@ -222,6 +225,7 @@ test('formation board scales to reduced browser height without content-driven re
 
   expect(shortHeightBoard!.width).toBeLessThan(fullHeightBoard!.width)
   expect(shortHeightBoard!.height).toBeLessThan(fullHeightBoard!.height)
+  await expectInsideViewport(page, '.board')
   expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
 })
 
@@ -235,6 +239,23 @@ test('active board scales to reduced browser height without scrolling', async ({
 
   expect(shortHeightBoard!.width).toBeLessThan(fullHeightBoard!.width)
   expect(shortHeightBoard!.height).toBeLessThan(fullHeightBoard!.height)
+  await expectInsideViewport(page, '.match-board')
+  expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
+})
+
+test('formation board stays inside a desktop browser viewport with tall browser chrome', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 596 })
+  await openMockMatch(page, 'FORMATION')
+
+  const boardBefore = await page.locator('.board').boundingBox()
+  await expectInsideViewport(page, '.board')
+  expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
+
+  await page.getByRole('button', { name: 'Five-Star General' })
+    .dragTo(page.getByRole('gridcell', { name: /row 0, column 0, formation cell/i }))
+
+  expect(await page.locator('.board').boundingBox()).toEqual(boardBefore)
+  await expectInsideViewport(page, '.board')
   expect(await page.evaluate(() => document.documentElement.scrollHeight - document.documentElement.clientHeight)).toBe(0)
 })
 
