@@ -50,6 +50,8 @@ export function DesktopMatchShell({
 }: DesktopMatchShellProps) {
   const [activeTab, setActiveTab] = useState<MobileMatchTab>('board')
   const [communicationTab, setCommunicationTab] = useState<MobileCommunicationTab>('chat')
+  const [fullscreen, setFullscreen] = useState(() =>
+    typeof document !== 'undefined' && document.fullscreenElement !== null)
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' && window.matchMedia?.('(max-width: 1023px)').matches === true)
   useEffect(() => {
@@ -59,6 +61,11 @@ export function DesktopMatchShell({
     update()
     query.addEventListener?.('change', update)
     return () => query.removeEventListener?.('change', update)
+  }, [])
+  useEffect(() => {
+    const update = () => setFullscreen(document.fullscreenElement !== null)
+    document.addEventListener('fullscreenchange', update)
+    return () => document.removeEventListener('fullscreenchange', update)
   }, [])
   const tabbed = view.phase !== 'FORMATION'
   const navigation = useMemo(() => ({
@@ -96,6 +103,17 @@ export function DesktopMatchShell({
             {connectionState === 'SYNCHRONIZED' ? 'Live' : connectionState === 'CONNECTING' ? 'Connecting' : 'Reconnecting'}
           </span>
         </div>
+        {isMobile && tabbed && typeof document.documentElement.requestFullscreen === 'function'
+          && typeof document.exitFullscreen === 'function' && (
+          <button type="button" className="match-fullscreen-toggle"
+            aria-label={fullscreen ? 'Exit full screen' : 'Enter full screen'}
+            onClick={() => {
+              if (fullscreen) void document.exitFullscreen().catch(() => undefined)
+              else void document.documentElement.requestFullscreen().catch(() => undefined)
+            }}>
+            <span aria-hidden="true">{fullscreen ? '⊙' : '⛶'}</span>
+          </button>
+        )}
       </section>
       {syncMessage && <p className="sync-message match-sync-toast" role="status">{syncMessage}</p>}
       <div className={`desktop-match-workspace${captures ? ' desktop-match-workspace--captures' : ''}`}>
