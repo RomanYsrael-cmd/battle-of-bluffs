@@ -142,7 +142,6 @@ function MatchRoute({ session, onLeave }: { session: MatchSession; onLeave: () =
           setSyncMessage('')
         } else if (decision === 'REFETCH') {
           setConnectionState('RECOVERING')
-          setSyncMessage('Update gap detected. Recovering the latest safe state…')
           refetchSafeView()
         }
       },

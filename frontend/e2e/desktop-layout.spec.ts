@@ -386,6 +386,22 @@ test('mobile match uses persistent board, pieces, camera, and chat tabs', async 
   await expect(page.getByRole('button', { name: 'Turn microphone on' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Turn camera on' })).toBeVisible()
   await expect(page.getByRole('button', { name: /Open media settings/ })).toBeVisible()
+  await expect(page.getByText('Side 1', { exact: true })).toBeHidden()
+  await expect(page.getByText('ACTIVE', { exact: true })).toBeHidden()
+  await expect(page.locator('.connection-state--synchronized')).toBeHidden()
+  await expect(page.getByText('Live', { exact: true })).toBeHidden()
+  const boardBeforeNotice = await board.boundingBox()
+  await page.evaluate(() => {
+    const notice = document.createElement('p')
+    notice.className = 'sync-message match-sync-toast'
+    notice.dataset.testid = 'sync-notice'
+    notice.textContent = 'Synchronizing…'
+    document.querySelector('.match-app-shell')?.append(notice)
+  })
+  const notice = page.locator('[data-testid="sync-notice"]')
+  await expect(notice).toHaveCSS('position', 'fixed')
+  expect(await board.boundingBox()).toEqual(boardBeforeNotice)
+  await notice.evaluate((element) => element.remove())
   const fullscreenButton = page.getByRole('button', { name: 'Enter full screen' })
   await expect(fullscreenButton).toBeVisible()
   await fullscreenButton.click()
