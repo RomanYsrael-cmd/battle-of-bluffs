@@ -89,10 +89,10 @@ export function DesktopMatchShell({
           <span className="match-status-turn"><span aria-hidden="true">●</span>{turn}</span>
           <span className="match-status-meta">
             <span>{view.mode === 'RANKED' ? 'Ranked' : 'Casual'}</span>
-            <span aria-hidden="true">•</span>
-            <span>Side {view.requestingSide === 'PLAYER_ONE' ? '1' : '2'}</span>
-            <span aria-hidden="true">•</span>
-            <span>{view.phase}</span>
+            <span className="match-status-detail" aria-hidden="true">•</span>
+            <span className="match-status-detail">Side {view.requestingSide === 'PLAYER_ONE' ? '1' : '2'}</span>
+            <span className="match-status-detail" aria-hidden="true">•</span>
+            <span className="match-status-detail">{view.phase}</span>
           </span>
         </div>
         <MatchTimers view={view} />

@@ -470,13 +470,16 @@ h2 { font-size: 1.65rem; }
   .match-app-shell--mobile-tabbed { position: fixed; inset: 0; display: flex; flex-direction: column; gap: .35rem; width: 100%; max-width: none; height: 100dvh; min-height: 0; padding: .35rem .4rem max(5.1rem, calc(4.45rem + env(safe-area-inset-bottom))); overflow: hidden; }
   .match-app-shell--mobile-tabbed > .match-header { display: none; }
   .match-app-shell--mobile-tabbed .match-status-bar { position: relative; display: grid; flex: 0 0 auto; grid-template-columns: minmax(0, 1fr); gap: .2rem; margin: 0; padding: .3rem .45rem; border: 1px solid #514329; border-radius: .75rem; background: linear-gradient(145deg, #151611f7, #0b0c0af7); box-shadow: 0 8px 24px #0007; }
-  .match-app-shell--mobile-tabbed .match-status-summary { display: grid; gap: .05rem; min-width: 0; padding-right: 9rem; color: #928b80; font-size: .46rem; letter-spacing: .06em; text-transform: uppercase; }
+  .match-app-shell--mobile-tabbed .match-status-summary { display: grid; gap: .05rem; min-width: 0; padding-right: 2.75rem; color: #928b80; font-size: .46rem; letter-spacing: .06em; text-transform: uppercase; }
   .match-app-shell--mobile-tabbed .match-status-turn { display: flex; gap: .3rem; align-items: center; color: #f2bf58; font-size: .62rem; font-weight: 900; letter-spacing: .07em; }
   .match-app-shell--mobile-tabbed .match-status-meta { display: flex; flex-wrap: wrap; gap: .3rem; }
-  .match-app-shell--mobile-tabbed .match-status-bar .connection-state { position: absolute; top: .4rem; right: .45rem; margin: 0; padding: .35rem .42rem; border: 1px solid #29472f; border-radius: .45rem; background: #112015; font-size: .55rem; white-space: nowrap; }
-  .match-app-shell--mobile-tabbed .match-fullscreen-toggle { position: absolute; z-index: 2; top: .4rem; right: 5.25rem; display: grid; width: 2rem; height: 1.75rem; padding: 0; border: 1px solid #4d422f; border-radius: .4rem; place-items: center; background: #171713; color: #d4b36f; font-size: 1rem; }
+  .match-app-shell--mobile-tabbed .match-status-detail { display: none; }
+  .match-app-shell--mobile-tabbed .match-status-bar .connection-state { position: absolute; z-index: 2; top: .4rem; right: 2.8rem; margin: 0; padding: .35rem .42rem; border: 1px solid #6b542a; border-radius: .45rem; background: #241d11; font-size: .55rem; white-space: nowrap; }
+  .match-app-shell--mobile-tabbed .match-status-bar .connection-state--synchronized { display: none; }
+  .match-app-shell--mobile-tabbed .match-fullscreen-toggle { position: absolute; z-index: 2; top: .4rem; right: .45rem; display: grid; width: 2rem; height: 1.75rem; padding: 0; border: 1px solid #4d422f; border-radius: .4rem; place-items: center; background: #171713; color: #d4b36f; font-size: 1rem; }
   .match-app-shell--mobile-tabbed .connection-state__full-label { display: none; }
   .match-app-shell--mobile-tabbed .connection-state__short-label { display: inline; }
+  .match-app-shell--mobile-tabbed .match-sync-toast { position: fixed; z-index: 130; top: max(.5rem, env(safe-area-inset-top)); left: 50%; width: max-content; max-width: calc(100vw - 1rem); margin: 0; padding: .4rem .55rem; border-radius: .35rem; font-size: .62rem; line-height: 1.25; pointer-events: none; transform: translateX(-50%); box-shadow: 0 8px 24px #000a; }
   .match-app-shell--mobile-tabbed .match-status-bar .match-timing { margin: 0; }
   .match-app-shell--mobile-tabbed .play-clocks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .match-app-shell--mobile-tabbed .setup-clock, .match-app-shell--mobile-tabbed .play-clock { min-height: 2.1rem; padding: .15rem .4rem; border-radius: .4rem; background: linear-gradient(145deg, #171713, #10110f); }
