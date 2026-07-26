@@ -94,7 +94,7 @@ jobs:
         working-directory: backend
         run: ./mvnw -DskipTests package
       - name: Upload backend artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: backend-jar-${{ github.sha }}
           path: backend/target/battle-of-bluffs-backend-*.jar
@@ -104,7 +104,7 @@ jobs:
         working-directory: backend
         run: ./mvnw -DskipTests org.cyclonedx:cyclonedx-maven-plugin:2.9.2:makeAggregateBom
       - name: Upload backend SBOM
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: backend-sbom
           path: backend/target/bom.*
@@ -135,7 +135,7 @@ jobs:
         working-directory: frontend
         run: npx --yes @cyclonedx/cyclonedx-npm@6.0.0 --omit dev --output-file frontend-bom.json
       - name: Upload frontend SBOM
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: frontend-sbom
           path: frontend/frontend-bom.json
@@ -219,7 +219,7 @@ jobs:
         run: npm run test:e2e
       - name: Upload browser diagnostics
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-diagnostics
           if-no-files-found: ignore
