@@ -18,7 +18,7 @@
     <description>Server-authoritative backend for Battle of Bluffs</description>
 
     <properties>
-        <dependency-check.version>12.2.2</dependency-check.version>
+        <dependency-check.version>13.0.0</dependency-check.version>
         <java.version>17</java.version>
         <log4j2.version>2.25.5</log4j2.version>
         <postgresql.version>42.7.12</postgresql.version>
